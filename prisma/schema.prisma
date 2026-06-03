@@ -6,3 +6,78 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPPORT
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+model User {
+  id String @id @default(uuid())
+
+  name String @map("name")
+
+  email String @unique @map("email")
+
+  phone String? @unique @map("phone")
+
+  passwordHash String @map("password_hash")
+
+  role UserRole @default(USER) @map("role")
+
+  status UserStatus @default(ACTIVE) @map("status")
+
+  isEmailVerified Boolean @default(false) @map("is_email_verified")
+
+  referralCode String @unique @map("referral_code")
+
+  referredBy String? @map("referred_by")
+
+  lastLoginAt DateTime? @map("last_login_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  isDeleted Boolean @default(false) @map("is_deleted")
+
+  sessions UserSession[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id String @id @default(uuid())
+
+  userId String @map("user_id")
+
+  refreshTokenHash String @map("refresh_token_hash")
+
+  deviceInfo String? @map("device_info")
+
+  ipAddress String? @map("ip_address")
+
+  userAgent String? @map("user_agent")
+
+  expiresAt DateTime @map("expires_at")
+
+  lastUsedAt DateTime? @map("last_used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
