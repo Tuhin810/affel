@@ -27,3 +27,5 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+/src/generated/prisma
