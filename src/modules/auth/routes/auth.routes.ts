@@ -1,8 +1,12 @@
 import { Router }
-from "express";
+  from "express";
 
 import { AuthController }
-from "../controllers/auth.controller";
+  from "../controllers/auth.controller";
+import { asyncHandler } from "../../../common/utils/async-handler";
+import {
+  authMiddleware
+} from "../../../middleware/auth.middleware";
 
 const router = Router();
 
@@ -11,12 +15,40 @@ const authController =
 
 router.post(
   "/send-email-otp",
-  authController.sendEmailOtp
+  asyncHandler(authController.sendEmailOtp.bind(authController))
 );
 
 router.post(
   "/verify-email-otp",
-  authController.verifyEmailOtp
+  asyncHandler(authController.verifyEmailOtp.bind(authController))
+);
+
+router.post(
+  "/register",
+  asyncHandler(authController.register.bind(authController))
+);
+
+router.post(
+  "/send-login-otp",
+  asyncHandler(authController.sendLoginOtp.bind(authController))
+);
+
+router.post(
+  "/verify-login-otp",
+  asyncHandler(authController.verifyLoginOtp.bind(authController))
+);
+
+router.post(
+  "/auth/logout",
+  asyncHandler(authController.logout)
+)
+
+router.get(
+  "/me",
+  authMiddleware,
+  asyncHandler(
+    authController.me
+  )
 );
 
 export default router;

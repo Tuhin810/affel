@@ -20,13 +20,13 @@ requiredEnvVars.forEach((envVar) => {
 export const env = {
   port: Number(process.env.PORT),
 
-  nodeEnv: process.env.NODE_ENV,
+  nodeEnv: process.env.NODE_ENV as string,
 
-  databaseUrl: process.env.DATABASE_URL,
+  databaseUrl: process.env.DATABASE_URL as string,
 
-  redisUrl: process.env.REDIS_URL,
+  redisUrl: process.env.REDIS_URL as string,
 
-  jwtSecret: process.env.JWT_SECRET,
+  jwtSecret: process.env.JWT_SECRET as string,
 
-  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET as string,
 };

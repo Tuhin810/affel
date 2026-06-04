@@ -27,9 +27,7 @@ model User {
 
   email String @unique @map("email")
 
-  phone String? @unique @map("phone")
-
-  passwordHash String @map("password_hash")
+  phone String @unique @map("phone")
 
   role UserRole @default(USER) @map("role")
 
@@ -37,9 +35,7 @@ model User {
 
   isEmailVerified Boolean @default(false) @map("is_email_verified")
 
-  referralCode String @unique @map("referral_code")
-
-  referredBy String? @map("referred_by")
+  isPhoneVerified Boolean @default(false) @map("is_phone_verified")
 
   lastLoginAt DateTime? @map("last_login_at")
 

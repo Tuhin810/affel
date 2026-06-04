@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 
-import { errorHandler } from "./middleware/error-handler.middleware";
+import { errorMiddleware } from "./middleware/error.middleware";
 import routes from "./routes";
 
 
@@ -23,6 +23,6 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.use(errorHandler);
+app.use(errorMiddleware);
 
 export default app;

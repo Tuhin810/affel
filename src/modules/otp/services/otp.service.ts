@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { OtpGeneratorService } from "./otp-generator.service";
 import { OtpCacheService } from "./otp-cache.service";
 
@@ -5,7 +6,7 @@ export class OtpService {
   constructor(
     private readonly otpGenerator: OtpGeneratorService,
     private readonly otpCacheService: OtpCacheService
-  ) {}
+  ) { }
 
   async generateAndStoreOtp(
     email: string,
@@ -45,23 +46,36 @@ export class OtpService {
       `otp:email:${email}`
     );
 
-    await this.otpCacheService.saveOtp(
-      `verified:email:${email}`,
-      "true",
-      900
-    );
-
     return true;
   }
-  async isEmailVerified(
+
+  async createVerificationToken(
     email: string
-    ): Promise<boolean> {
+  ): Promise<string> {
+    const token = randomUUID();
 
-      const verified =
-        await this.otpCacheService.getOtp(
-          `verified:email:${email}`
-        );
+    await this.otpCacheService.saveOtp(
+      `verification:${token}`,
+      email,
+      120
+    );
 
-      return verified === "true";
-}
+    return token;
+  }
+
+  async validateVerificationToken(
+    token: string
+  ): Promise<string | null> {
+    return this.otpCacheService.getOtp(
+      `verification:${token}`
+    );
+  }
+
+  async deleteVerificationToken(
+    token: string
+  ): Promise<void> {
+    await this.otpCacheService.deleteOtp(
+      `verification:${token}`
+    );
+  }
 }
