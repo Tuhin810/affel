@@ -79,17 +79,53 @@ model UserSession {
 }
 
 model AppConfig {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) @map("id")
 
-  key String @unique
+  key String @unique @map("key")
 
-  value String
+  value String @map("value")
 
-  description String?
+  description String? @map("description")
 
   createdAt DateTime @default(now()) @map("created_at")
 
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("app_configs")
+}
+
+model Merchant {
+  id String @id @default(uuid()) @map("id")
+
+  name String @unique @map("name")
+
+  slug String @unique @map("slug")
+
+  description String? @map("description")
+
+  websiteUrl String? @map("website_url")
+
+  affiliateUrl String? @map("affiliate_url")
+
+  logoUrl String? @map("logo_url")
+
+  bannerUrl String? @map("banner_url")
+
+  cashbackText String? @map("cashback_text")
+
+  termsAndConditions String? @map("terms_and_conditions")
+
+  isFeatured Boolean @default(false) @map("is_featured")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  isDeleted Boolean @default(false) @map("is_deleted")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("merchants")
 }

@@ -1,17 +1,11 @@
-import { Router }
-  from "express";
+import { Router } from "express";
 
-import { AuthController }
-  from "../controllers/auth.controller";
+import { AuthController } from "../controllers/auth.controller";
 import { asyncHandler } from "../../../common/utils/async-handler";
-import {
-  authMiddleware
-} from "../../../middleware/auth.middleware";
-
+import { authMiddleware } from "../../../middleware/auth.middleware";
 const router = Router();
 
-const authController =
-  new AuthController();
+const authController = new AuthController();
 
 router.post(
   "/send-email-otp",
@@ -50,5 +44,7 @@ router.get(
     authController.me
   )
 );
+
+
 
 export default router;
