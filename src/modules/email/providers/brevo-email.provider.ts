@@ -1,4 +1,4 @@
-import * as Brevo from "@getbrevo/brevo";
+import { BrevoClient } from "@getbrevo/brevo";
 
 import { IEmailProvider }
 from "../interfaces/IEmailProvider";
@@ -6,17 +6,15 @@ from "../interfaces/IEmailProvider";
 export class BrevoEmailProvider
   implements IEmailProvider
 {
-  private apiInstance: Brevo.TransactionalEmailsApi;
+  private client: BrevoClient;
 
   constructor() {
 
-    this.apiInstance =
-      new Brevo.TransactionalEmailsApi();
-
-    this.apiInstance.setApiKey(
-      Brevo.TransactionalEmailsApiApiKeys.apiKey,
-      process.env.BREVO_API_KEY!
-    );
+    this.client =
+      new BrevoClient({
+        apiKey:
+          process.env.BREVO_API_KEY!,
+      });
   }
 
   async sendEmail(
@@ -25,23 +23,25 @@ export class BrevoEmailProvider
     htmlContent: string
   ): Promise<void> {
 
-    await this.apiInstance.sendTransacEmail({
-      sender: {
-        email:
-          process.env.BREVO_SENDER_EMAIL!,
-        name:
-          process.env.BREVO_SENDER_NAME!,
-      },
-
-      to: [
-        {
-          email: to,
+    await this.client
+      .transactionalEmails
+      .sendTransacEmail({
+        sender: {
+          email:
+            process.env.BREVO_SENDER_EMAIL!,
+          name:
+            process.env.BREVO_SENDER_NAME!,
         },
-      ],
 
-      subject,
+        to: [
+          {
+            email: to,
+          },
+        ],
 
-      htmlContent,
-    });
+        subject,
+
+        htmlContent,
+      });
   }
 }

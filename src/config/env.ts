@@ -6,6 +6,7 @@ const requiredEnvVars = [
   "PORT",
   "NODE_ENV",
   "DATABASE_URL",
+  "REDIS_URL",
   "JWT_SECRET",
   "JWT_REFRESH_SECRET",
 ];
@@ -22,6 +23,8 @@ export const env = {
   nodeEnv: process.env.NODE_ENV,
 
   databaseUrl: process.env.DATABASE_URL,
+
+  redisUrl: process.env.REDIS_URL,
 
   jwtSecret: process.env.JWT_SECRET,
 

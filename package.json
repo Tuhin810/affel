@@ -18,18 +18,22 @@
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",
     "@prisma/client": "^6.8.2",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.2",
     "helmet": "^8.2.0",
     "ioredis": "^5.11.0",
+    "jsonwebtoken": "^9.0.3",
     "nanoid": "^5.1.11",
     "prisma": "^6.8.2",
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

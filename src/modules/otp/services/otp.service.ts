@@ -53,4 +53,15 @@ export class OtpService {
 
     return true;
   }
+  async isEmailVerified(
+    email: string
+    ): Promise<boolean> {
+
+      const verified =
+        await this.otpCacheService.getOtp(
+          `verified:email:${email}`
+        );
+
+      return verified === "true";
+}
 }

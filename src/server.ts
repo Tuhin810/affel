@@ -15,9 +15,17 @@ const startServer = async (): Promise<void> => {
     logger.info(`Server running on port ${env.port}`);
   });
 
-  await redisClient.ping();
+  try {
+    await redisClient.ping();
 
-  logger.info("Redis ping successful");
+    logger.info("Redis ping successful");
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : "Unknown Redis error";
+
+    logger.warn(`Redis is unavailable. Continuing without cache. ${message}`);
+  }
 
   process.on("SIGTERM", () => {
     logger.info("SIGTERM received");
