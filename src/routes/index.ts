@@ -14,7 +14,7 @@ router.use(
 );
 
 router.use(
-  "merchant",merchantRoutes
+  "/merchant",merchantRoutes
 );
 
 export default router;
