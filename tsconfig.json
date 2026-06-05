@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-
     "module": "CommonJS",
     "moduleResolution": "node",
 
@@ -15,13 +14,7 @@
 
     "skipLibCheck": true,
 
-    "forceConsistentCasingInFileNames": true,
-
-    "types": ["node"],
-    "typeRoots": [
-      "./src/types",
-      "./node_modules/@types"
-    ]
+    "forceConsistentCasingInFileNames": true
   },
 
   "include": ["src/**/*"],
