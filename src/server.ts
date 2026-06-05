@@ -4,22 +4,44 @@ import { env } from "./config/env";
 
 import logger from "./config/logger";
 
-const server = app.listen(env.port, () => {
-  logger.info(`Server running on port ${env.port}`);
-});
+import { connectDatabase } from "./config/database";
 
-process.on("SIGTERM", () => {
-  logger.info("SIGTERM received");
+import { redisClient } from "./config/redis";
 
-  server.close(() => {
-    logger.info("Server closed");
+const startServer = async (): Promise<void> => {
+  await connectDatabase();
+
+  const server = app.listen(env.port, () => {
+    logger.info(`Server running on port ${env.port}`);
   });
-});
 
-process.on("SIGINT", () => {
-  logger.info("SIGINT received");
+  try {
+    await redisClient.ping();
 
-  server.close(() => {
-    logger.info("Server closed");
+    logger.info("Redis ping successful");
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : "Unknown Redis error";
+
+    logger.warn(`Redis is unavailable. Continuing without cache. ${message}`);
+  }
+
+  process.on("SIGTERM", () => {
+    logger.info("SIGTERM received");
+
+    server.close(() => {
+      logger.info("Server closed");
+    });
   });
-});
+
+  process.on("SIGINT", () => {
+    logger.info("SIGINT received");
+
+    server.close(() => {
+      logger.info("Server closed");
+    });
+  });
+};
+
+startServer();

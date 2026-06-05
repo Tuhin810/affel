@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+dist/
 npm-debug.log
 yarn-error.log
 
@@ -27,3 +28,5 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+/src/generated/prisma
