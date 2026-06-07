@@ -6,12 +6,24 @@ from "express";
 import { AppError }
 from "../common/errors/app.error";
 
+import logger from "../config/logger";
+
 export const errorMiddleware = (
   error: Error,
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
+
+  logger.error(
+    "Request failed",
+    {
+      method: req.method,
+      path: req.originalUrl,
+      message: error.message,
+      stack: error.stack,
+    }
+  );
 
   if (
     error instanceof AppError

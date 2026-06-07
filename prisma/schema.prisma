@@ -109,6 +109,8 @@ model Merchant {
 
   logoUrl String? @map("logo_url")
 
+  logoPublicId String? @map("logo_public_id")
+
   bannerUrl String? @map("banner_url")
 
   cashbackText String? @map("cashback_text")

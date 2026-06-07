@@ -5,6 +5,7 @@ export interface CreateMerchantDto {
   websiteUrl?: string;
   affiliateUrl?: string;
   logoUrl?: string;
+  logoPublicId?: string;
   bannerUrl?: string;
   cashbackText?: string;
   termsAndConditions?: string;

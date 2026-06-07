@@ -1,40 +1,102 @@
 import prisma from "../../../database/prisma/client";
 
 import { CreateMerchantDto } from "../dto/create-merchant.dto";
+import { UpdateMerchantDto } from "../dto/update-merchant.dto";
+import logger from "../../../config/logger";
 
 export class MerchantRepository {
   async create(
     data: CreateMerchantDto
   ) {
-    return prisma.merchant.create({
+    logger.info(
+      "Creating merchant record",
+      {
+        slug: data.slug,
+        name: data.name,
+      }
+    );
+
+    const merchant =
+      await prisma.merchant.create({
       data: {
         ...data,
       },
     });
+
+    logger.info(
+      "Merchant record created",
+      {
+        id: merchant.id,
+        slug: merchant.slug,
+      }
+    );
+
+    return merchant;
   }
 
   async findBySlug(
     slug: string
   ) {
-    return prisma.merchant.findUnique({
+    logger.info(
+      "Finding merchant record by slug",
+      {
+        slug,
+      }
+    );
+
+    const merchant =
+      await prisma.merchant.findUnique({
       where: {
         slug,
       },
     });
+
+    logger.info(
+      "Merchant record lookup by slug completed",
+      {
+        slug,
+        found: Boolean(merchant),
+      }
+    );
+
+    return merchant;
   }
 
   async findById(
     id: string
   ) {
-    return prisma.merchant.findUnique({
+    logger.info(
+      "Finding merchant record by id",
+      {
+        id,
+      }
+    );
+
+    const merchant =
+      await prisma.merchant.findUnique({
       where: {
         id,
       },
     });
+
+    logger.info(
+      "Merchant record lookup by id completed",
+      {
+        id,
+        found: Boolean(merchant),
+      }
+    );
+
+    return merchant;
   }
 
   async findAll() {
-    return prisma.merchant.findMany({
+    logger.info(
+      "Finding active merchant records"
+    );
+
+    const merchants =
+      await prisma.merchant.findMany({
       where: {
         isActive: true,
         isDeleted: false,
@@ -43,24 +105,60 @@ export class MerchantRepository {
         createdAt: "desc",
       },
     });
+
+    logger.info(
+      "Active merchant records found",
+      {
+        count: merchants.length,
+      }
+    );
+
+    return merchants;
   }
 
   async update(
     id: string,
-    data: Partial<CreateMerchantDto>
+    data: UpdateMerchantDto
   ) {
-    return prisma.merchant.update({
+    logger.info(
+      "Updating merchant record",
+      {
+        id,
+        fields: Object.keys(data ?? {}),
+      }
+    );
+
+    const merchant =
+      await prisma.merchant.update({
       where: {
         id,
       },
       data,
     });
+
+    logger.info(
+      "Merchant record updated",
+      {
+        id: merchant.id,
+        slug: merchant.slug,
+      }
+    );
+
+    return merchant;
   }
 
   async softDelete(
     id: string
   ) {
-    return prisma.merchant.update({
+    logger.info(
+      "Soft deleting merchant record",
+      {
+        id,
+      }
+    );
+
+    const merchant =
+      await prisma.merchant.update({
       where: {
         id,
       },
@@ -69,5 +167,15 @@ export class MerchantRepository {
         isDeleted: true,
       },
     });
+
+    logger.info(
+      "Merchant record soft deleted",
+      {
+        id: merchant.id,
+        slug: merchant.slug,
+      }
+    );
+
+    return merchant;
   }
 }
