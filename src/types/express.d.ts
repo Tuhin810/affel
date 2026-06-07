@@ -1,12 +1,12 @@
-export {};
+// src/types/express.d.ts
 
+import { AuthUser } from "./auth.types";
 declare global {
   namespace Express {
-    export interface Request {
-      user?: {
-        userId: string;
-        role: string;
-      };
+    interface Request {
+      user?: AuthUser;
     }
   }
 }
+
+export {};

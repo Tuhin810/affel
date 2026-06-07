@@ -7,3 +7,4 @@ export const generateSignatureSchema =
     folder:
       z.enum(uploadFolders),
   });
+

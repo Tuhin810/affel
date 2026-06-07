@@ -1,7 +1,9 @@
 import cloudinary from "../../config/cloudinary";
 import { AppError } from "../../common/errors/app.error";
 
-import { UploadFolder } from "./upload.types";
+import {
+  UploadFolder,
+} from "./upload.types";
 
 class UploadService {
   generateSignature(
@@ -28,9 +30,7 @@ class UploadService {
     }
 
     const timestamp =
-      Math.round(
-        new Date().getTime() / 1000
-      );
+      Math.round(Date.now() / 1000);
 
     const signature =
       cloudinary.utils.api_sign_request(
@@ -49,6 +49,7 @@ class UploadService {
       folder,
     };
   }
+
 }
 
 export const uploadService =

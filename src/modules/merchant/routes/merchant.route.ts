@@ -2,13 +2,13 @@ import { Router } from "express";
 
 import { merchantController } from "../merchant.module";
 
-import { asyncHandler } from "../../common/utils/async-handler";
+import { asyncHandler } from "../../../common/utils/async-handler";
 
-import { authMiddleware } from "../../middleware/auth.middleware";
+import { authMiddleware } from "../../../middleware/auth.middleware";
 
 import {
   authorize
-} from "../../middleware/authorize.middleware";
+} from "../../../middleware/authorize.middleware";
 
 const router = Router();
 
@@ -21,21 +21,21 @@ const router = Router();
 router.get(
   "/",
   asyncHandler(
-    merchantController.getAll
+    merchantController.getAll.bind(merchantController)
   )
 );
 
 router.get(
   "/slug/:slug",
   asyncHandler(
-    merchantController.getBySlug
+    merchantController.getBySlug.bind(merchantController)
   )
 );
 
 router.get(
   "/:id",
   asyncHandler(
-    merchantController.getById
+    merchantController.getById.bind(merchantController)
   )
 );
 
@@ -50,7 +50,7 @@ router.post(
   authMiddleware,
   authorize(["ADMIN"]),
   asyncHandler(
-    merchantController.create
+    merchantController.create.bind(merchantController)
   )
 );
 
@@ -59,7 +59,7 @@ router.patch(
   authMiddleware,
   authorize(["ADMIN"]),
   asyncHandler(
-    merchantController.update
+    merchantController.update.bind(merchantController)
   )
 );
 
@@ -68,7 +68,7 @@ router.delete(
   authMiddleware,
   authorize(["ADMIN"]),
   asyncHandler(
-    merchantController.delete
+    merchantController.delete.bind(merchantController)
   )
 );
 

@@ -1,13 +1,14 @@
 import { z } from "zod";
 
-export const createMerchantSchema = z.object({
-  name: z.string().min(2).max(100),
+export const updateMerchantSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
 
   slug: z
     .string()
     .min(2)
     .max(100)
-    .regex(/^[a-z0-9-]+$/),
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
 
   description: z.string().optional(),
 
