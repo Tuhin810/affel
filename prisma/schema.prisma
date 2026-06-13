@@ -131,3 +131,22 @@ model Merchant {
   @@index([isActive])
   @@map("merchants")
 }
+
+model Banner {
+  id            String   @id @default(uuid()) @map("id")
+  title         String   @map("title")
+  description   String?  @map("description")
+  imageUrl      String   @map("image_url")
+  imagePublicId String?  @map("image_public_id")
+  tags          String[] @default([]) @map("tags")
+  offerTitle    String?  @map("offer_title")
+  link          String?  @map("link")
+  placement     String   @default("HERO") @map("placement")
+  order         Int      @default(0) @map("order")
+  isActive      Boolean  @default(true) @map("is_active")
+  isDeleted     Boolean  @default(false) @map("is_deleted")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("banners")
+}
