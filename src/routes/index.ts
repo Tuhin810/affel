@@ -10,6 +10,8 @@ from "../modules/upload/upload.routes";
 
 import bannerRoutes
 from "../modules/banner/routes/banner.route";
+import productRoutes
+from "../modules/product/routes/product.route";
 
 const router = Router();
 
@@ -32,6 +34,9 @@ router.use(
   bannerRoutes
 );
 
-
+router.use(
+  "/product",
+  productRoutes
+);
 
 export default router;

@@ -150,3 +150,76 @@ model Banner {
 
   @@map("banners")
 }
+
+model Product {
+  id                 String                 @id @default(uuid()) @map("id")
+  name               String                 @map("name")
+  description        String                 @map("description")
+  imageUrls          String[]               @map("image_urls")
+  imagePublicIds     String[]               @map("image_public_ids")
+  price              Float                  @map("price")
+  isActive           Boolean                @default(true) @map("is_active")
+  isFeatured         Boolean                @default(false) @map("is_featured")
+  
+  // Cashback Info
+  cashbackPercentage Float                  @map("cashback_percentage")
+  cashbackTerms      String                 @map("cashback_terms")
+
+  // Payment Timeline Info
+  trackingTime       Int                    @map("tracking_time")
+  validationTime     Int                    @map("validation_time")
+  paymentRelease     Int                    @map("payment_release")
+
+  isDeleted          Boolean                @default(false) @map("is_deleted")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  affiliateLinks     ProductAffiliateLink[]
+  categories         ProductCategory[]
+
+  @@index([price])
+  @@index([isActive, isDeleted])
+  @@map("products")
+}
+
+model Category {
+  id        String            @id @default(uuid()) @map("id")
+  name      String            @unique @map("name")
+  slug      String            @unique @map("slug")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  products  ProductCategory[]
+
+  @@map("categories")
+}
+
+model ProductCategory {
+  productId  String   @map("product_id")
+  categoryId String   @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
+  @@map("product_categories")
+}
+
+model ProductAffiliateLink {
+  id                 String   @id @default(uuid()) @map("id")
+  productId          String   @map("product_id")
+  platformName       String   @map("platform_name")
+  affiliateLink      String   @map("affiliate_link")
+  mrp                Float    @map("mrp")
+  sellPrice          Float    @map("sell_price")
+  cashbackPercentage Float    @map("cashback_percentage")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_affiliate_links")
+}

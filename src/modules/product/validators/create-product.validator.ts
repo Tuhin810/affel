@@ -1,0 +1,42 @@
+import { z } from "zod";
+
+export const createProductAffiliateLinkSchema = z.object({
+  platformName: z.string().min(1, "Platform name is required").max(100),
+  affiliateLink: z.string().url("Affiliate link must be a valid URL"),
+  mrp: z.number().nonnegative("MRP must be a non-negative number"),
+  sellPrice: z.number().nonnegative("Sell price must be a non-negative number"),
+  cashbackPercentage: z
+    .number()
+    .min(0, "Cashback percentage must be at least 0")
+    .max(100, "Cashback percentage cannot exceed 100"),
+});
+
+export const createProductSchema = z.object({
+  name: z.string().min(2, "Product name must be at least 2 characters").max(100),
+  description: z.string().min(1, "Description is required"),
+  categoryIds: z
+    .array(z.string().uuid("Each category ID must be a valid UUID"))
+    .min(1, "At least one category is required"),
+  imageUrls: z
+    .array(z.string().url("Each image URL must be a valid URL"))
+    .min(1, "At least one product image is required")
+    .max(6, "Maximum 6 product images allowed"),
+  imagePublicIds: z
+    .array(z.string().min(1))
+    .max(6, "Maximum 6 product image public IDs allowed")
+    .optional(),
+  price: z.number().nonnegative("Price must be a non-negative number"),
+  isActive: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
+  cashbackPercentage: z
+    .number()
+    .min(0, "Cashback percentage must be at least 0")
+    .max(100, "Cashback percentage cannot exceed 100"),
+  cashbackTerms: z.string().min(1, "Cashback terms are required"),
+  trackingTime: z.number().int().nonnegative("Tracking time must be a non-negative integer"),
+  validationTime: z.number().int().nonnegative("Validation time must be a non-negative integer"),
+  paymentRelease: z.number().int().nonnegative("Payment release time must be a non-negative integer"),
+  affiliateLinks: z
+    .array(createProductAffiliateLinkSchema)
+    .min(1, "At least one affiliate platform link is required"),
+});
