@@ -33,15 +33,20 @@ router.post(
 );
 
 router.post(
-  "/auth/logout",
-  asyncHandler(authController.logout)
-)
+  "/refresh",
+  asyncHandler(authController.refreshToken.bind(authController))
+);
+
+router.post(
+  "/logout",
+  asyncHandler(authController.logout.bind(authController))
+);
 
 router.get(
   "/me",
   authMiddleware,
   asyncHandler(
-    authController.me
+    authController.me.bind(authController)
   )
 );
 

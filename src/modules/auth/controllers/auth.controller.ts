@@ -56,8 +56,18 @@ export class AuthController {
         req.body
       );
 
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/v1/auth",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    const { refreshToken, ...responseBody } = result;
+
     res.status(201).json(
-      ApiResponse.success(result, "User registered successfully")
+      ApiResponse.success(responseBody, "User registered successfully")
     );
   }
 
@@ -93,8 +103,18 @@ export class AuthController {
         otp
       );
 
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/v1/auth",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    const { refreshToken, ...responseBody } = result;
+
     res.status(200).json(
-      ApiResponse.success(result, "Login successful")
+      ApiResponse.success(responseBody, "Login successful")
     );
   }
 
@@ -103,7 +123,7 @@ export class AuthController {
     res: Response
   ): Promise<void> {
 
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) {
       throw new AppError("Refresh token is required", 400);
@@ -111,8 +131,18 @@ export class AuthController {
 
     const result = await authService.refreshToken(refreshToken);
 
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/v1/auth",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    const { refreshToken: _, ...responseBody } = result;
+
     res.status(200).json(
-      ApiResponse.success(result, "Token refreshed successfully")
+      ApiResponse.success(responseBody, "Token refreshed successfully")
     );
   }
 
@@ -121,13 +151,20 @@ export class AuthController {
     res: Response
   ): Promise<void> {
 
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) {
       throw new AppError("Refresh token is required", 400);
     }
 
     await authService.logout(refreshToken);
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/v1/auth",
+    });
 
     res.status(200).json(
       ApiResponse.success(null, "Logged out successfully")
