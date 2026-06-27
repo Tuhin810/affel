@@ -9,6 +9,7 @@ const requiredEnvVars = [
   "REDIS_URL",
   "JWT_SECRET",
   "JWT_REFRESH_SECRET",
+  "RABBITMQ_URL",
 ];
 
 requiredEnvVars.forEach((envVar) => {
@@ -29,4 +30,6 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET as string,
 
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET as string,
+
+  rabbitmqUrl: process.env.RABBITMQ_URL as string,
 };

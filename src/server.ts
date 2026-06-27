@@ -8,8 +8,16 @@ import { connectDatabase } from "./config/database";
 
 import { redisClient } from "./config/redis";
 
+import { RabbitMQService } from "./config/rabbitmq";
+
+import { initializeEventConsumers } from "./modules/event-consumers";
+
 const startServer = async (): Promise<void> => {
   await connectDatabase();
+
+  // Initialize RabbitMQ and start consumers
+  await RabbitMQService.connect();
+  await initializeEventConsumers();
 
   const server = app.listen(env.port, () => {
     logger.info(`Server running on port ${env.port}`);

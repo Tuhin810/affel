@@ -223,3 +223,123 @@ model ProductAffiliateLink {
   @@index([productId])
   @@map("product_affiliate_links")
 }
+
+enum ConversionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum CashbackStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LedgerType {
+  CREDIT
+  DEBIT
+}
+
+model Click {
+  id                 String   @id @default(uuid()) @map("id")
+  clickId            String   @unique @map("click_id")
+  userId             String   @map("user_id")
+  entityType         String   @map("entity_type") // PRODUCT, MERCHANT, BANNER, CATEGORY, OFFER, CAMPAIGN
+  entityId           String   @map("entity_id")
+  productSourceId    String?  @map("product_source_id") // References ProductAffiliateLink.id
+  merchantId         String?  @map("merchant_id")
+  campaignId         String?  @map("campaign_id")
+  affiliateNetworkId String?  @map("affiliate_network_id")
+  subid1             String?  @map("subid1")
+  subid2             String?  @map("subid2")
+  subid3             String?  @map("subid3")
+  subid4             String?  @map("subid4")
+  subid5             String?  @map("subid5")
+  ipAddress          String?  @map("ip_address")
+  userAgent          String?  @map("user_agent")
+  deviceType         String?  @map("device_type")
+  clickedAt          DateTime @default(now()) @map("clicked_at")
+
+  conversions        Conversion[]
+
+  @@index([clickId])
+  @@index([userId])
+  @@map("clicks")
+}
+
+model Conversion {
+  id               String           @id @default(uuid()) @map("id")
+  clickId          String           @map("click_id")
+  transactionId    String           @unique @map("transaction_id")
+  networkId        String           @map("network_id")
+  orderAmount      Float            @map("order_amount")
+  commissionAmount Float            @map("commission_amount")
+  cashbackAmount   Float            @map("cashback_amount")
+  status           ConversionStatus @default(PENDING) @map("status")
+  conversionDate   DateTime         @default(now()) @map("conversion_date")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  click            Click            @relation(fields: [clickId], references: [clickId], onDelete: Restrict)
+  cashbacks        Cashback[]
+
+  @@index([clickId])
+  @@index([transactionId])
+  @@map("conversions")
+}
+
+model Cashback {
+  id           String         @id @default(uuid()) @map("id")
+  userId       String         @map("user_id")
+  conversionId String         @map("conversion_id")
+  amount       Float          @map("amount")
+  status       CashbackStatus @default(PENDING) @map("status")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  conversion   Conversion     @relation(fields: [conversionId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([conversionId])
+  @@map("cashbacks")
+}
+
+model Wallet {
+  id        String         @id @default(uuid()) @map("id")
+  userId    String         @unique @map("user_id")
+  balance   Float          @default(0.0) @map("balance")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  ledger    WalletLedger[]
+
+  @@map("wallets")
+}
+
+model WalletLedger {
+  id          String     @id @default(uuid()) @map("id")
+  walletId    String     @map("wallet_id")
+  amount      Float      @map("amount") // Positive for credit, negative for debit
+  type        LedgerType @map("type")
+  description String?    @map("description")
+  referenceId String?    @map("reference_id") // E.g., cashbackId or withdrawalId
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  wallet      Wallet     @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@index([walletId])
+  @@map("wallet_ledgers")
+}
+
+model FraudFlag {
+  id        String   @id @default(uuid()) @map("id")
+  clickId   String?  @map("click_id")
+  userId    String?  @map("user_id")
+  ipAddress String?  @map("ip_address")
+  reason    String   @map("reason")
+  severity  String   @map("severity")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("fraud_flags")
+}
