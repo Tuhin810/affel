@@ -6,13 +6,13 @@ import logger from "../config/logger";
 export async function initializeEventConsumers(): Promise<void> {
   logger.info("Initializing RabbitMQ Event Consumers...");
 
-  // 1. Conversion received -> handle cashback creation/update
+  // 1. Conversion created -> handle cashback creation/update
   await RabbitMQService.consume(
-    "conversion_received_queue",
-    "conversion.received",
+    "conversion_created_queue",
+    "conversion.created",
     async (payload) => {
-      logger.info(`Consumer: Received conversion.received event: ${payload.transactionId}`);
-      await cashbackService.handleConversionReceived(payload);
+      logger.info(`Consumer: Received conversion.created event: ${payload.transactionId}`);
+      await cashbackService.handleConversionCreated(payload);
     }
   );
 
@@ -26,7 +26,7 @@ export async function initializeEventConsumers(): Promise<void> {
     }
   );
 
-  // 3. Logger consumer for other events
+  // 3. Logger consumers for other events
   await RabbitMQService.consume(
     "click_created_queue",
     "click.created",

@@ -9,16 +9,13 @@ export class ProductRepository {
   async create(data: CreateProductDto) {
     logger.info("Creating product in database", { name: data.name });
 
-    const { affiliateLinks, categoryIds, ...productData } = data;
+    const { categoryIds, ...productData } = data;
 
     const product = await prisma.$transaction(async (tx) => {
       const created = await tx.product.create({
         data: {
           ...productData,
           imagePublicIds: productData.imagePublicIds || [],
-          affiliateLinks: {
-            create: affiliateLinks,
-          },
           categories: {
             create: categoryIds.map((categoryId) => ({
               categoryId,
@@ -26,7 +23,6 @@ export class ProductRepository {
           },
         },
         include: {
-          affiliateLinks: true,
           categories: {
             include: {
               category: true,
@@ -37,7 +33,7 @@ export class ProductRepository {
       return created;
     });
 
-    logger.info("Product created in database with affiliate links and categories", { id: product.id });
+    logger.info("Product created in database with categories", { id: product.id });
     return product;
   }
 
@@ -47,7 +43,6 @@ export class ProductRepository {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
-        affiliateLinks: true,
         categories: {
           include: {
             category: true,
@@ -70,7 +65,6 @@ export class ProductRepository {
         isDeleted: false,
       },
       include: {
-        affiliateLinks: true,
         categories: {
           include: {
             category: true,
@@ -83,7 +77,7 @@ export class ProductRepository {
     return product;
   }
 
-  async findAllActive(filters?: { platformName?: string; categoryIds?: string[]; category?: string }) {
+  async findAllActive(filters?: { categoryIds?: string[]; category?: string }) {
     logger.info("Finding all active products with filters", filters);
 
     const products = await prisma.product.findMany({
@@ -113,18 +107,8 @@ export class ProductRepository {
               },
             }
           : {}),
-        ...(filters?.platformName
-          ? {
-              affiliateLinks: {
-                some: {
-                  platformName: { equals: filters.platformName, mode: "insensitive" },
-                },
-              },
-            }
-          : {}),
       },
       include: {
-        affiliateLinks: true,
         categories: {
           include: {
             category: true,
@@ -148,7 +132,6 @@ export class ProductRepository {
         isDeleted: false,
       },
       include: {
-        affiliateLinks: true,
         categories: {
           include: {
             category: true,
@@ -167,16 +150,9 @@ export class ProductRepository {
   async update(id: string, data: UpdateProductDto) {
     logger.info("Updating product in database", { id });
 
-    const { affiliateLinks, categoryIds, ...productData } = data;
+    const { categoryIds, ...productData } = data;
 
     const product = await prisma.$transaction(async (tx) => {
-      if (affiliateLinks !== undefined) {
-        logger.info("Replacing affiliate links for product", { id });
-        await tx.productAffiliateLink.deleteMany({
-          where: { productId: id },
-        });
-      }
-
       if (categoryIds !== undefined) {
         logger.info("Replacing categories for product", { id });
         await tx.productCategory.deleteMany({
@@ -188,13 +164,6 @@ export class ProductRepository {
         where: { id },
         data: {
           ...productData,
-          ...(affiliateLinks !== undefined
-            ? {
-                affiliateLinks: {
-                  create: affiliateLinks,
-                },
-              }
-            : {}),
           ...(categoryIds !== undefined
             ? {
                 categories: {
@@ -206,7 +175,6 @@ export class ProductRepository {
             : {}),
         },
         include: {
-          affiliateLinks: true,
           categories: {
             include: {
               category: true,
@@ -266,7 +234,6 @@ export class ProductRepository {
       limit,
     } = params;
 
-    // Build dynamic where conditions
     const where: Prisma.ProductWhereInput = {
       isActive: true,
       isDeleted: false,
@@ -300,7 +267,6 @@ export class ProductRepository {
       }),
     };
 
-    // Resolve sort option into Prisma orderBy
     const sortMap: Record<string, Prisma.ProductOrderByWithRelationInput> = {
       newest:       { createdAt: "desc" },
       oldest:       { createdAt: "asc" },
@@ -315,7 +281,6 @@ export class ProductRepository {
 
     logger.info("Listing products with filters", { search, category, minPrice, maxPrice, featured, sort, page, limit });
 
-    // Run count and findMany in parallel — single round trip to DB
     const [total, products] = await Promise.all([
       prisma.product.count({ where }),
       prisma.product.findMany({
@@ -327,7 +292,6 @@ export class ProductRepository {
           categories: {
             include: { category: true },
           },
-          affiliateLinks: true,
         },
       }),
     ]);

@@ -1,11 +1,3 @@
-export interface ProductAffiliateLinkDto {
-  platformName: string;
-  affiliateLink: string;
-  mrp: number;
-  sellPrice: number;
-  cashbackPercentage: number;
-}
-
 export interface CreateProductDto {
   name: string;
   description: string;
@@ -20,5 +12,4 @@ export interface CreateProductDto {
   trackingTime: number;
   validationTime: number;
   paymentRelease: number;
-  affiliateLinks: ProductAffiliateLinkDto[];
 }

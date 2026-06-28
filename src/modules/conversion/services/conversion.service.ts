@@ -1,5 +1,4 @@
 import { ConversionRepository } from "../repositories/conversion.repository";
-import { ParsedConversion } from "../../tracking/adapters/network-adapter.interface";
 import { RabbitMQService } from "../../../config/rabbitmq";
 import { ConversionStatus } from "@prisma/client";
 import prisma from "../../../database/prisma/client";
@@ -8,19 +7,26 @@ import logger from "../../../config/logger";
 export class ConversionService {
   private conversionRepository = new ConversionRepository();
 
-  public async processConversion(parsed: ParsedConversion, networkId: string): Promise<void> {
-    const existing = await this.conversionRepository.findByTransactionId(parsed.transactionId);
+  public async processConversion(data: {
+    clickId?: string | null;
+    transactionId: string;
+    orderAmount: number;
+    commissionAmount: number;
+    cashbackAmount?: number | null;
+    status: ConversionStatus;
+    conversionDate?: Date;
+  }): Promise<any> {
+    const existing = await this.conversionRepository.findByTransactionId(data.transactionId);
 
     if (existing) {
-      // Idempotency: webhook deduplication
-      if (existing.status !== parsed.status) {
+      if (existing.status !== data.status) {
         logger.info(
-          `Updating existing conversion transaction ${parsed.transactionId} status from ${existing.status} to ${parsed.status}`
+          `Updating existing conversion transaction ${data.transactionId} status from ${existing.status} to ${data.status}`
         );
-        const updated = await this.conversionRepository.updateStatus(existing.id, parsed.status as ConversionStatus);
+        const updated = await this.conversionRepository.updateStatus(existing.id, data.status);
         
         // Publish status update event
-        await RabbitMQService.publish("conversion.received", {
+        await RabbitMQService.publish("conversion.created", {
           conversionId: updated.id,
           clickId: updated.clickId,
           transactionId: updated.transactionId,
@@ -29,50 +35,54 @@ export class ConversionService {
           commissionAmount: updated.commissionAmount,
           cashbackAmount: updated.cashbackAmount,
         });
-      } else {
-        logger.info(`Conversion transaction ${parsed.transactionId} already processed with status ${parsed.status}. Skipping.`);
+        return updated;
       }
-      return;
+      logger.info(`Conversion transaction ${data.transactionId} already processed with status ${data.status}. Skipping.`);
+      return existing;
     }
 
-    // New conversion: Resolve click
-    const click = await prisma.click.findUnique({
-      where: { clickId: parsed.clickId },
-    });
+    let resolvedCashbackAmount = data.cashbackAmount;
+    let userId: string | null = null;
 
-    if (!click) {
-      logger.warn(`Attribution Failure: No click record found for clickId: ${parsed.clickId}. Logging conversion anyway.`);
-    }
-
-    // Calculate cashback amount (70% of the network commission received goes to the user, or calculate based on product percentage)
-    let cashbackAmount = parsed.commissionAmount * 0.70;
-    
-    if (click && click.entityType.toUpperCase() === "PRODUCT" && click.productSourceId) {
-      const source = await prisma.productAffiliateLink.findUnique({
-        where: { id: click.productSourceId },
+    if (data.clickId) {
+      const click = await prisma.click.findUnique({
+        where: { clickId: data.clickId },
       });
-      if (source && source.cashbackPercentage) {
-        // If product has specific cashback percentage, calculate based on order amount
-        cashbackAmount = (parsed.orderAmount * source.cashbackPercentage) / 100;
+      if (click) {
+        userId = click.userId;
+        if (resolvedCashbackAmount === undefined || resolvedCashbackAmount === null) {
+          if (click.affiliateLinkId) {
+            const link = await prisma.affiliateLink.findUnique({
+              where: { id: click.affiliateLinkId },
+            });
+            if (link) {
+              resolvedCashbackAmount = (data.orderAmount * link.cashbackPercent) / 100;
+            }
+          }
+        }
       }
+    }
+
+    if (resolvedCashbackAmount === undefined || resolvedCashbackAmount === null) {
+      // Default fallback: 70% of commission
+      resolvedCashbackAmount = data.commissionAmount * 0.70;
     }
 
     // Create conversion record
     const conversion = await this.conversionRepository.createConversion({
-      clickId: parsed.clickId,
-      transactionId: parsed.transactionId,
-      networkId,
-      orderAmount: parsed.orderAmount,
-      commissionAmount: parsed.commissionAmount,
-      cashbackAmount: cashbackAmount,
-      status: parsed.status as ConversionStatus,
-      conversionDate: parsed.conversionDate,
+      clickId: data.clickId,
+      transactionId: data.transactionId,
+      orderAmount: data.orderAmount,
+      commissionAmount: data.commissionAmount,
+      cashbackAmount: resolvedCashbackAmount,
+      status: data.status,
+      conversionDate: data.conversionDate,
     });
 
-    logger.info(`Created new conversion record for transaction: ${parsed.transactionId}`);
+    logger.info(`Created new conversion record for transaction: ${data.transactionId}`);
 
     // Publish RabbitMQ event
-    await RabbitMQService.publish("conversion.received", {
+    await RabbitMQService.publish("conversion.created", {
       conversionId: conversion.id,
       clickId: conversion.clickId,
       transactionId: conversion.transactionId,
@@ -80,8 +90,12 @@ export class ConversionService {
       orderAmount: conversion.orderAmount,
       commissionAmount: conversion.commissionAmount,
       cashbackAmount: conversion.cashbackAmount,
-      userId: click ? click.userId : null,
+      userId: userId,
     });
+
+    return conversion;
   }
 }
+
 export const conversionService = new ConversionService();
+export default conversionService;

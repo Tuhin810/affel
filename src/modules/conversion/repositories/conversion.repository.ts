@@ -3,17 +3,24 @@ import { ConversionStatus } from "@prisma/client";
 
 export class ConversionRepository {
   public async createConversion(data: {
-    clickId: string;
+    clickId?: string | null;
     transactionId: string;
-    networkId: string;
     orderAmount: number;
     commissionAmount: number;
     cashbackAmount: number;
     status: ConversionStatus;
-    conversionDate: Date;
+    conversionDate?: Date;
   }) {
     return prisma.conversion.create({
-      data,
+      data: {
+        clickId: data.clickId || null,
+        transactionId: data.transactionId,
+        orderAmount: data.orderAmount,
+        commissionAmount: data.commissionAmount,
+        cashbackAmount: data.cashbackAmount,
+        status: data.status,
+        conversionDate: data.conversionDate || new Date(),
+      },
     });
   }
 

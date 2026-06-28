@@ -43,7 +43,6 @@ export class ProductController {
 
   async getAllActive(req: Request, res: Response): Promise<void> {
     const category = req.query.category ? String(req.query.category) : undefined;
-    const platformName = req.query.platformName ? String(req.query.platformName) : undefined;
     
     let categoryIds: string[] | undefined = undefined;
     if (req.query.categoryIds) {
@@ -54,9 +53,9 @@ export class ProductController {
       }
     }
 
-    logger.info("Product list active request received", { category, platformName, categoryIds });
+    logger.info("Product list active request received", { category, categoryIds });
 
-    const products = await this.productService.getAllActive({ category, platformName, categoryIds });
+    const products = await this.productService.getAllActive({ category, categoryIds });
     logger.info("Product list active request completed", { count: products.length });
 
     res.status(200).json(

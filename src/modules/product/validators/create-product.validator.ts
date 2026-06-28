@@ -1,16 +1,5 @@
 import { z } from "zod";
 
-export const createProductAffiliateLinkSchema = z.object({
-  platformName: z.string().min(1, "Platform name is required").max(100),
-  affiliateLink: z.string().url("Affiliate link must be a valid URL"),
-  mrp: z.number().nonnegative("MRP must be a non-negative number"),
-  sellPrice: z.number().nonnegative("Sell price must be a non-negative number"),
-  cashbackPercentage: z
-    .number()
-    .min(0, "Cashback percentage must be at least 0")
-    .max(100, "Cashback percentage cannot exceed 100"),
-});
-
 export const createProductSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters").max(100),
   description: z.string().min(1, "Description is required"),
@@ -36,7 +25,4 @@ export const createProductSchema = z.object({
   trackingTime: z.number().int().nonnegative("Tracking time must be a non-negative integer"),
   validationTime: z.number().int().nonnegative("Validation time must be a non-negative integer"),
   paymentRelease: z.number().int().nonnegative("Payment release time must be a non-negative integer"),
-  affiliateLinks: z
-    .array(createProductAffiliateLinkSchema)
-    .min(1, "At least one affiliate platform link is required"),
 });

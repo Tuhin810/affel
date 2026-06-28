@@ -1,10 +1,8 @@
-import { ProductAffiliateLinkDto } from "./create-product.dto";
-
 export interface UpdateProductDto {
   name?: string;
   description?: string;
   categoryIds?: string[];
-  imageUrls?: string[]; // Wait, let's make sure we don't introduce typos
+  imageUrls?: string[];
   imagePublicIds?: string[];
   price?: number;
   isActive?: boolean;
@@ -14,5 +12,4 @@ export interface UpdateProductDto {
   trackingTime?: number;
   validationTime?: number;
   paymentRelease?: number;
-  affiliateLinks?: ProductAffiliateLinkDto[];
 }

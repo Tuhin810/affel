@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { createProductAffiliateLinkSchema } from "./create-product.validator";
 
 export const updateProductSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters").max(100).optional(),
@@ -29,8 +28,4 @@ export const updateProductSchema = z.object({
   trackingTime: z.number().int().nonnegative("Tracking time must be a non-negative integer").optional(),
   validationTime: z.number().int().nonnegative("Validation time must be a non-negative integer").optional(),
   paymentRelease: z.number().int().nonnegative("Payment release time must be a non-negative integer").optional(),
-  affiliateLinks: z
-    .array(createProductAffiliateLinkSchema)
-    .min(1, "At least one affiliate platform link is required")
-    .optional(),
 });

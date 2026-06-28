@@ -4,21 +4,21 @@ import { RabbitMQService } from "../../../config/rabbitmq";
 import logger from "../../../config/logger";
 
 export class CashbackService {
-  public async handleConversionReceived(event: {
+  public async handleConversionCreated(event: {
     conversionId: string;
-    clickId: string;
+    clickId?: string | null;
     transactionId: string;
     status: string;
     orderAmount: number;
     commissionAmount: number;
     cashbackAmount: number;
-    userId?: string;
+    userId?: string | null;
   }): Promise<void> {
     logger.info(`Cashback Service processing conversion event for transaction ${event.transactionId}`);
 
     // Resolve userId if not provided in the event
     let userId = event.userId;
-    if (!userId) {
+    if (!userId && event.clickId) {
       const click = await prisma.click.findUnique({
         where: { clickId: event.clickId },
       });
@@ -28,7 +28,7 @@ export class CashbackService {
     }
 
     if (!userId) {
-      logger.error(`Cannot process cashback: No userId associated with clickId ${event.clickId}`);
+      logger.error(`Cannot process cashback: No userId associated with transaction ${event.transactionId}`);
       return;
     }
 
@@ -96,4 +96,6 @@ export class CashbackService {
     }
   }
 }
+
 export const cashbackService = new CashbackService();
+export default cashbackService;

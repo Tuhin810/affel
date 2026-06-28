@@ -1,15 +1,9 @@
 import app from "./app";
-
 import { env } from "./config/env";
-
 import logger from "./config/logger";
-
 import { connectDatabase } from "./config/database";
-
 import { redisClient } from "./config/redis";
-
 import { RabbitMQService } from "./config/rabbitmq";
-
 import { initializeEventConsumers } from "./modules/event-consumers";
 
 const startServer = async (): Promise<void> => {
@@ -25,19 +19,14 @@ const startServer = async (): Promise<void> => {
 
   try {
     await redisClient.ping();
-
     logger.info("Redis ping successful");
   } catch (error) {
-    const message = error instanceof Error
-      ? error.message
-      : "Unknown Redis error";
-
+    const message = error instanceof Error ? error.message : "Unknown Redis error";
     logger.warn(`Redis is unavailable. Continuing without cache. ${message}`);
   }
 
   process.on("SIGTERM", () => {
     logger.info("SIGTERM received");
-
     server.close(() => {
       logger.info("Server closed");
     });
@@ -45,7 +34,6 @@ const startServer = async (): Promise<void> => {
 
   process.on("SIGINT", () => {
     logger.info("SIGINT received");
-
     server.close(() => {
       logger.info("Server closed");
     });

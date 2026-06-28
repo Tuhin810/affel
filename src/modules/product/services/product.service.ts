@@ -17,15 +17,12 @@ export class ProductService {
     // Validate image URLs and public IDs
     this.validateImages(dto.imageUrls, dto.imagePublicIds);
 
-    // Validate affiliate links prices
-    this.validateAffiliateLinks(dto.affiliateLinks);
-
     const product = await this.productRepository.create(dto);
     logger.info("Product created successfully in service", { id: product.id });
     return product;
   }
 
-  async getAllActive(filters?: { platformName?: string; category?: string; categoryIds?: string[] }) {
+  async getAllActive(filters?: { category?: string; categoryIds?: string[] }) {
     logger.info("Fetching active products service call", filters);
     return this.productRepository.findAllActive(filters);
   }
@@ -79,10 +76,6 @@ export class ProductService {
     
     if (dto.imageUrls !== undefined || dto.imagePublicIds !== undefined) {
       this.validateImages(urlsToValidate, publicIdsToValidate);
-    }
-
-    if (dto.affiliateLinks !== undefined) {
-      this.validateAffiliateLinks(dto.affiliateLinks);
     }
 
     const updated = await this.productRepository.update(id, dto);
@@ -154,19 +147,5 @@ export class ProductService {
       }
     }
   }
-
-  private validateAffiliateLinks(links: Array<{ platformName: string; mrp: number; sellPrice: number }>): void {
-    if (links.length === 0) {
-      throw new AppError("At least one affiliate platform link is required", 400);
-    }
-
-    for (const link of links) {
-      if (link.sellPrice > link.mrp) {
-        throw new AppError(
-          `Sell price (${link.sellPrice}) cannot be greater than MRP (${link.mrp}) for platform: ${link.platformName}`,
-          400
-        );
-      }
-    }
-  }
 }
+export default ProductService;

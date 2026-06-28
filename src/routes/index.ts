@@ -14,12 +14,14 @@ import productRoutes
 from "../modules/product/routes/product.route";
 import trackingRoutes
 from "../modules/tracking/routes/tracking.route";
-import webhookRoutes
-from "../modules/conversion/routes/webhook.route";
+import conversionRoutes
+from "../modules/conversion/routes/conversion.route";
 import walletRoutes
 from "../modules/wallet/routes/wallet.route";
 import analyticsRoutes
 from "../modules/analytics/routes/analytics.route";
+import affiliateLinkRoutes
+from "../modules/affiliate-link/routes/affiliate-link.route";
 
 const router = Router();
 
@@ -53,8 +55,8 @@ router.use(
 );
 
 router.use(
-  "/webhooks",
-  webhookRoutes
+  "/conversion",
+  conversionRoutes
 );
 
 router.use(
@@ -65,6 +67,11 @@ router.use(
 router.use(
   "/analytics",
   analyticsRoutes
+);
+
+router.use(
+  "/affiliate-link",
+  affiliateLinkRoutes
 );
 
 export default router;

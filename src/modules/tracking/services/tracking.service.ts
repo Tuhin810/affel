@@ -1,142 +1,183 @@
 import crypto from "crypto";
-import { TrackingRepository } from "../repositories/tracking.repository";
-import { AffiliateLinkService } from "./affiliate-link.service";
+import { ClickRepository } from "../repositories/click.repository";
 import { RabbitMQService } from "../../../config/rabbitmq";
 import prisma from "../../../database/prisma/client";
 import logger from "../../../config/logger";
+import { AppError } from "../../../common/errors/app.error";
 
 export class TrackingService {
-  private trackingRepository = new TrackingRepository();
-  private affiliateLinkService = new AffiliateLinkService();
+  private clickRepository = new ClickRepository();
 
   public async trackClick(params: {
     userId: string;
     entityType: string;
     entityId: string;
-    productSourceId?: string; // Optional, mapping to ProductAffiliateLink.id
-    merchantId?: string;
     campaignId?: string;
-    ipAddress?: string;
-    userAgent?: string;
-    deviceType?: string;
+    referralId?: string;
+    device?: string;
+    browser?: string;
+    ip?: string;
   }): Promise<{ clickId: string; redirectUrl: string }> {
     const clickId = `clk_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`;
+    const entityType = params.entityType.toUpperCase();
+    const entityId = params.entityId;
 
-    // 1. Perform Fraud checks
-    if (params.ipAddress) {
-      // Check for click spam: > 100 clicks in 1 minute
-      const recentClicksCount = await this.trackingRepository.countClicksInTimeframe(params.ipAddress, 1);
-      if (recentClicksCount >= 100) {
-        logger.warn(`Spam activity detected from IP: ${params.ipAddress}. Flagging fraud.`);
-        await this.trackingRepository.createFraudFlag({
-          clickId,
-          userId: params.userId,
-          ipAddress: params.ipAddress,
-          reason: "CLICK_SPAM",
-          severity: "HIGH",
-        });
-      }
-    }
-
-    // 2. Resolve target URL and network ID from entity types
-    let targetUrl = "";
-    let networkId = "cuelinks"; // Default fallback network
-    let finalProductSourceId = params.productSourceId || null;
-    let finalMerchantId = params.merchantId || null;
-
-    if (params.entityType.toUpperCase() === "PRODUCT") {
-      // Find affiliate link for the product
-      let linkRecord = null;
-      if (params.productSourceId) {
-        linkRecord = await prisma.productAffiliateLink.findUnique({
-          where: { id: params.productSourceId },
-        });
-      } else {
-        linkRecord = await prisma.productAffiliateLink.findFirst({
-          where: { productId: params.entityId },
-        });
-      }
-
-      if (linkRecord) {
-        targetUrl = linkRecord.affiliateLink;
-        networkId = linkRecord.platformName || "cuelinks";
-        finalProductSourceId = linkRecord.id;
-        
-        // Load merchant details from product if possible to associate merchant ID
-        const product = await prisma.product.findUnique({
-          where: { id: params.entityId },
-        });
-        // Note: product model in schema currently does not have direct merchantId, 
-        // but we keep finalMerchantId as passed.
-      }
-    } else if (params.entityType.toUpperCase() === "MERCHANT") {
-      const merchant = await prisma.merchant.findUnique({
-        where: { id: params.entityId },
-      });
-      if (merchant && merchant.affiliateUrl) {
-        targetUrl = merchant.affiliateUrl;
-        finalMerchantId = merchant.id;
-        // In real settings, merchant.affiliateUrl might map to a network or we assume a config.
-      }
-    } else if (params.entityType.toUpperCase() === "BANNER") {
-      const banner = await prisma.banner.findUnique({
-        where: { id: params.entityId },
-      });
-      if (banner && banner.link) {
-        targetUrl = banner.link;
-      }
-    }
-
-    // Fallback target URL if nothing resolved
-    if (!targetUrl) {
-      targetUrl = "https://example.com/fallback";
-    }
-
-    // 3. Map SubIDs according to our SubID strategy
-    const subids = {
-      subid1: params.userId,
-      subid2: params.entityType,
-      subid3: params.entityId,
-      subid4: params.campaignId || "none",
-      subid5: clickId,
-    };
-
-    // 4. Generate redirect URL with wrapped sub-parameters
-    const redirectUrl = this.affiliateLinkService.generateRedirectUrl(
-      networkId,
-      targetUrl,
-      clickId,
-      subids
-    );
-
-    // 5. Store Click Record
-    const click = await this.trackingRepository.createClick({
-      clickId,
-      userId: params.userId,
-      entityType: params.entityType,
-      entityId: params.entityId,
-      productSourceId: finalProductSourceId,
-      merchantId: finalMerchantId,
-      campaignId: params.campaignId,
-      affiliateNetworkId: networkId,
-      subid1: subids.subid1,
-      subid2: subids.subid2,
-      subid3: subids.subid3,
-      subid4: subids.subid4,
-      subid5: subids.subid5,
-      ipAddress: params.ipAddress,
-      userAgent: params.userAgent,
-      deviceType: params.deviceType,
+    // 1. FIND AFFILIATE LINK (SINGLE SOURCE OF TRUTH)
+    const affiliateLink = await prisma.affiliateLink.findFirst({
+      where: {
+        entityType,
+        entityId,
+        isActive: true,
+      },
+      orderBy: {
+        priority: "desc",
+      },
     });
 
-    // 6. Publish event in RabbitMQ background processing
+    if (!affiliateLink) {
+      logger.warn(`No active affiliate link configured for entityType: ${entityType}, entityId: ${entityId}`);
+      throw new AppError("Affiliate link not found or inactive for this entity", 404);
+    }
+
+    let isFraud = false;
+    let fraudReason = "";
+    let fraudSeverity = "LOW";
+
+    // 2. FRAUD DETECTION FLOW
+    // Check Rapid Clicks (IP)
+    if (params.ip) {
+      const ipClickCount = await this.clickRepository.countClicksInTimeframe(params.ip, 10);
+      if (ipClickCount >= 5) {
+        isFraud = true;
+        fraudReason = "RAPID_CLICKS_IP";
+        fraudSeverity = "MEDIUM";
+      }
+    }
+
+    // Check Rapid Clicks (User)
+    if (!isFraud && params.userId) {
+      const userClickCount = await this.clickRepository.countUserClicksInTimeframe(params.userId, 10);
+      if (userClickCount >= 5) {
+        isFraud = true;
+        fraudReason = "RAPID_CLICKS_USER";
+        fraudSeverity = "MEDIUM";
+      }
+    }
+
+    // Check Duplicate Click
+    if (!isFraud && params.userId && params.ip && params.device) {
+      const duplicateClick = await this.clickRepository.findDuplicateClick(
+        params.userId,
+        entityId,
+        params.ip,
+        params.device,
+        30
+      );
+      if (duplicateClick) {
+        isFraud = true;
+        fraudReason = "DUPLICATE_CLICK";
+        fraudSeverity = "LOW";
+      }
+    }
+
+    // Check Self Referral
+    if (!isFraud && entityType === "REFERRAL" && entityId === params.userId) {
+      isFraud = true;
+      fraudReason = "SELF_REFERRAL";
+      fraudSeverity = "HIGH";
+    }
+
+    // Check VPN / Proxy Abuse
+    if (!isFraud && params.ip) {
+      const isLocalHost = params.ip === "127.0.0.1" || params.ip === "::1" || params.ip.startsWith("192.168.");
+      if (!isLocalHost && (params.ip.startsWith("10.") || params.ip.startsWith("172.16."))) {
+        isFraud = true;
+        fraudReason = "VPN_PROXY_ABUSE";
+        fraudSeverity = "MEDIUM";
+      }
+    }
+
+    // 3. GENERATE REDIRECT URL
+    let redirectUrl = affiliateLink.affiliateUrl;
+    if (redirectUrl.includes("{clickId}")) {
+      redirectUrl = redirectUrl.replace("{clickId}", clickId);
+    } else if (redirectUrl.includes("{click_id}")) {
+      redirectUrl = redirectUrl.replace("{click_id}", clickId);
+    }
+
+    // 4. RESOLVE MERCHANT AND PRODUCT SOURCE DETAILS
+    let finalMerchantId = affiliateLink.merchantId || null;
+    let finalProductSourceId = entityType === "PRODUCT_SOURCE" ? entityId : null;
+
+    if (!finalMerchantId && entityType === "PRODUCT_SOURCE") {
+      const productSource = await prisma.productSource.findUnique({
+        where: { id: entityId },
+      });
+      if (productSource) {
+        finalMerchantId = productSource.merchantId;
+      }
+    }
+
+    // 5. SAVE CLICK RECORD
+    const status = isFraud ? "FRAUD" : "ACTIVE";
+    const click = await this.clickRepository.createClick({
+      clickId,
+      userId: params.userId,
+      entityType,
+      entityId,
+      merchantId: finalMerchantId,
+      productSourceId: finalProductSourceId,
+      affiliateLinkId: affiliateLink.id,
+      campaignId: params.campaignId || null,
+      referralId: params.referralId || null,
+      device: params.device || null,
+      browser: params.browser || null,
+      ip: params.ip || null,
+      status,
+    });
+
+    // 6. RECORD FRAUD FLAG IF DETECTED
+    if (isFraud) {
+      await this.clickRepository.createFraudFlag({
+        clickId,
+        userId: params.userId,
+        ipAddress: params.ip,
+        reason: fraudReason,
+        severity: fraudSeverity,
+      });
+      logger.warn(`Fraud click flagged: ${clickId} reason: ${fraudReason} severity: ${fraudSeverity}`);
+    }
+
+    // 7. LOG CLICK ANALYTICS
+    await this.clickRepository.logClickAnalytics({
+      entityType,
+      entityId,
+      merchantId: finalMerchantId,
+      productSourceId: finalProductSourceId,
+      device: params.device,
+      browser: params.browser,
+      ip: params.ip,
+      referrer: params.referralId,
+    });
+
+    // 8. PUBLISH EVENTS TO RABBITMQ
     await RabbitMQService.publish("click.created", {
       clickId,
-      userId: click.userId,
-      entityType: click.entityType,
-      entityId: click.entityId,
-      affiliateNetworkId: click.affiliateNetworkId,
-      clickedAt: click.clickedAt,
+      userId: params.userId,
+      entityType,
+      entityId,
+      status,
+      createdAt: click.createdAt,
+    });
+
+    await RabbitMQService.publish("analytics.update", {
+      clickId,
+      entityType,
+      entityId,
+      merchantId: finalMerchantId,
+      productSourceId: finalProductSourceId,
+      device: params.device,
+      status,
     });
 
     return {
@@ -146,10 +187,13 @@ export class TrackingService {
   }
 
   public async getClick(clickId: string) {
-    return this.trackingRepository.findByClickId(clickId);
+    return this.clickRepository.findByClickId(clickId);
   }
 
   public async getUserHistory(userId: string) {
-    return this.trackingRepository.findUserHistory(userId);
+    return this.clickRepository.findUserHistory(userId);
   }
 }
+
+export const trackingService = new TrackingService();
+export default trackingService;

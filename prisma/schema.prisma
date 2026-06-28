@@ -105,8 +105,6 @@ model Merchant {
 
   websiteUrl String? @map("website_url")
 
-  affiliateUrl String? @map("affiliate_url")
-
   logoUrl String? @map("logo_url")
 
   logoPublicId String? @map("logo_public_id")
@@ -115,7 +113,11 @@ model Merchant {
 
   cashbackText String? @map("cashback_text")
 
+  cashback Float? @map("cashback")
+
   termsAndConditions String? @map("terms_and_conditions")
+
+  trackingSettings Json? @map("tracking_settings")
 
   isFeatured Boolean @default(false) @map("is_featured")
 
@@ -126,6 +128,8 @@ model Merchant {
   createdAt DateTime @default(now()) @map("created_at")
 
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  productSources ProductSource[]
 
   @@index([slug])
   @@index([isActive])
@@ -174,8 +178,8 @@ model Product {
   createdAt          DateTime               @default(now()) @map("created_at")
   updatedAt          DateTime               @updatedAt @map("updated_at")
 
-  affiliateLinks     ProductAffiliateLink[]
   categories         ProductCategory[]
+  productSources     ProductSource[]
 
   @@index([price])
   @@index([isActive, isDeleted])
@@ -207,23 +211,6 @@ model ProductCategory {
   @@map("product_categories")
 }
 
-model ProductAffiliateLink {
-  id                 String   @id @default(uuid()) @map("id")
-  productId          String   @map("product_id")
-  platformName       String   @map("platform_name")
-  affiliateLink      String   @map("affiliate_link")
-  mrp                Float    @map("mrp")
-  sellPrice          Float    @map("sell_price")
-  cashbackPercentage Float    @map("cashback_percentage")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-
-  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
-  @@map("product_affiliate_links")
-}
-
 enum ConversionStatus {
   PENDING
   APPROVED
@@ -242,38 +229,57 @@ enum LedgerType {
   DEBIT
 }
 
+model AffiliateLink {
+  id                String   @id @default(uuid()) @map("id")
+  entityType        String   @map("entity_type") // MERCHANT, PRODUCT_SOURCE, CATEGORY, BANNER, CAMPAIGN, OFFER, REFERRAL
+  entityId          String   @map("entity_id")
+  merchantId        String?  @map("merchant_id")
+  originalUrl       String   @map("original_url")
+  affiliateUrl      String   @map("affiliate_url")
+  cashbackPercent   Float    @map("cashback_percent")
+  commissionPercent Float?   @map("commission_percent")
+  priority          Int      @default(0) @map("priority")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdBy         String?  @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  clicks            Click[]
+
+  @@index([entityType, entityId])
+  @@map("affiliate_links")
+}
+
 model Click {
-  id                 String   @id @default(uuid()) @map("id")
-  clickId            String   @unique @map("click_id")
-  userId             String   @map("user_id")
-  entityType         String   @map("entity_type") // PRODUCT, MERCHANT, BANNER, CATEGORY, OFFER, CAMPAIGN
-  entityId           String   @map("entity_id")
-  productSourceId    String?  @map("product_source_id") // References ProductAffiliateLink.id
-  merchantId         String?  @map("merchant_id")
-  campaignId         String?  @map("campaign_id")
-  affiliateNetworkId String?  @map("affiliate_network_id")
-  subid1             String?  @map("subid1")
-  subid2             String?  @map("subid2")
-  subid3             String?  @map("subid3")
-  subid4             String?  @map("subid4")
-  subid5             String?  @map("subid5")
-  ipAddress          String?  @map("ip_address")
-  userAgent          String?  @map("user_agent")
-  deviceType         String?  @map("device_type")
-  clickedAt          DateTime @default(now()) @map("clicked_at")
+  id              String           @id @default(uuid()) @map("id")
+  clickId         String           @unique @map("click_id")
+  userId          String           @map("user_id")
+  entityType      String           @map("entity_type") // MERCHANT, PRODUCT_SOURCE, CATEGORY, BANNER, CAMPAIGN, OFFER, REFERRAL
+  entityId        String           @map("entity_id")
+  merchantId      String?          @map("merchant_id")
+  productSourceId String?          @map("product_source_id")
+  affiliateLinkId String?          @map("affiliate_link_id")
+  campaignId      String?          @map("campaign_id")
+  referralId      String?          @map("referral_id")
+  ip              String?          @map("ip")
+  browser         String?          @map("browser")
+  device          String?          @map("device")
+  status          String           @default("ACTIVE") @map("status") // ACTIVE, CONVERTED, FRAUD
+  createdAt       DateTime         @default(now()) @map("created_at")
 
-  conversions        Conversion[]
+  affiliateLink   AffiliateLink?   @relation(fields: [affiliateLinkId], references: [id], onDelete: SetNull)
+  conversions     Conversion[]
+  fraudFlags      FraudFlag[]
 
-  @@index([clickId])
   @@index([userId])
+  @@index([clickId])
   @@map("clicks")
 }
 
 model Conversion {
   id               String           @id @default(uuid()) @map("id")
-  clickId          String           @map("click_id")
+  clickId          String?          @map("click_id")
   transactionId    String           @unique @map("transaction_id")
-  networkId        String           @map("network_id")
   orderAmount      Float            @map("order_amount")
   commissionAmount Float            @map("commission_amount")
   cashbackAmount   Float            @map("cashback_amount")
@@ -282,7 +288,7 @@ model Conversion {
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
 
-  click            Click            @relation(fields: [clickId], references: [clickId], onDelete: Restrict)
+  click            Click?           @relation(fields: [clickId], references: [clickId], onDelete: SetNull)
   cashbacks        Cashback[]
 
   @@index([clickId])
@@ -291,15 +297,15 @@ model Conversion {
 }
 
 model Cashback {
-  id           String         @id @default(uuid()) @map("id")
-  userId       String         @map("user_id")
-  conversionId String         @map("conversion_id")
-  amount       Float          @map("amount")
-  status       CashbackStatus @default(PENDING) @map("status")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
+  id                     String         @id @default(uuid()) @map("id")
+  userId                 String         @map("user_id")
+  conversionId           String?        @map("conversion_id")
+  amount                 Float          @map("amount")
+  status                 CashbackStatus @default(PENDING) @map("status")
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
 
-  conversion   Conversion     @relation(fields: [conversionId], references: [id], onDelete: Restrict)
+  conversion             Conversion?    @relation(fields: [conversionId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@index([conversionId])
@@ -333,13 +339,51 @@ model WalletLedger {
 }
 
 model FraudFlag {
-  id        String   @id @default(uuid()) @map("id")
-  clickId   String?  @map("click_id")
-  userId    String?  @map("user_id")
-  ipAddress String?  @map("ip_address")
-  reason    String   @map("reason")
-  severity  String   @map("severity")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid()) @map("id")
+  clickId     String?  @map("click_id")
+  userId      String?  @map("user_id")
+  ipAddress   String?  @map("ip_address")
+  reason      String   @map("reason")
+  severity    String   @map("severity")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  click       Click?   @relation(fields: [clickId], references: [clickId], onDelete: Cascade)
 
   @@map("fraud_flags")
+}
+
+model ProductSource {
+  id                 String   @id @default(uuid()) @map("id")
+  productId          String   @map("product_id")
+  merchantId         String   @map("merchant_id")
+  originalProductUrl String   @map("original_product_url")
+  currentPrice       Float    @default(0.0) @map("current_price")
+  stock              Int      @default(0) @map("stock")
+  status             String   @default("ACTIVE") @map("status")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  merchant           Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([merchantId])
+  @@map("product_sources")
+}
+
+model ClickAnalytics {
+  id              String   @id @default(uuid()) @map("id")
+  entityType      String   @map("entity_type")
+  entityId        String   @map("entity_id")
+  merchantId      String?  @map("merchant_id")
+  productSourceId String?  @map("product_source_id")
+  device          String?  @map("device")
+  browser         String?  @map("browser")
+  ip              String?  @map("ip")
+  country         String?  @map("country")
+  referrer        String?  @map("referrer")
+  clickedAt       DateTime @default(now()) @map("clicked_at")
+
+  @@index([entityType, entityId])
+  @@map("click_analytics")
 }

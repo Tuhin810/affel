@@ -1,87 +1,97 @@
 import { Request, Response } from "express";
+import { ZodError } from "zod";
 import { TrackingService } from "../services/tracking.service";
+import { trackClickSchema } from "../validators/tracking.validator";
+import { ApiResponse } from "../../../common/utils/api-response";
+import { AppError } from "../../../common/errors/app.error";
 
 export class TrackingController {
   private trackingService = new TrackingService();
 
   public async trackClick(req: Request, res: Response): Promise<void> {
-    try {
-      const userId = (req as any).user?.userId || req.body.userId;
-      if (!userId) {
-        res.status(400).json({ success: false, message: "User ID is required" });
-        return;
-      }
+    const parsed = trackClickSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(this.formatValidationError(parsed.error), 400);
+    }
 
-      const { entityType, entityId, productSourceId, merchantId, campaignId, redirect } = req.body;
+    const {
+      userId,
+      entityType,
+      entityId,
+      campaignId,
+      Device,
+      Browser,
+      IP,
+      ReferralCode,
+      redirect,
+    } = parsed.data;
 
-      if (!entityType || !entityId) {
-        res.status(400).json({ success: false, message: "entityType and entityId are required" });
-        return;
-      }
+    // Resolve userId from authenticated user first, then fallback to request body
+    const resolvedUserId = (req as any).user?.userId || userId;
+    if (!resolvedUserId) {
+      throw new AppError("User ID is required", 400);
+    }
 
-      const ipAddress = req.ip || req.headers["x-forwarded-for"] as string || "";
-      const userAgent = req.headers["user-agent"] || "";
-      
-      // Basic device type detection
-      let deviceType = "DESKTOP";
+    const userAgent = req.headers["user-agent"] || "";
+    const ipAddress = IP || req.ip || (req.headers["x-forwarded-for"] as string) || "";
+
+    // Resolve browser / device if not provided
+    let browserName = Browser || "unknown";
+    if (!Browser && userAgent) {
+      if (/chrome/i.test(userAgent)) browserName = "Chrome";
+      else if (/safari/i.test(userAgent)) browserName = "Safari";
+      else if (/firefox/i.test(userAgent)) browserName = "Firefox";
+      else if (/edge/i.test(userAgent)) browserName = "Edge";
+    }
+
+    let deviceType = Device || "DESKTOP";
+    if (!Device && userAgent) {
       if (/mobile/i.test(userAgent)) deviceType = "MOBILE";
       else if (/tablet/i.test(userAgent)) deviceType = "TABLET";
+    }
 
-      const result = await this.trackingService.trackClick({
-        userId,
-        entityType,
-        entityId,
-        productSourceId,
-        merchantId,
-        campaignId,
-        ipAddress,
-        userAgent,
-        deviceType,
-      });
+    const result = await this.trackingService.trackClick({
+      userId: resolvedUserId,
+      entityType,
+      entityId,
+      campaignId,
+      device: deviceType,
+      browser: browserName,
+      ip: ipAddress,
+      referralId: ReferralCode,
+    });
 
-      if (redirect === true || req.query.redirect === "true") {
-        res.redirect(302, result.redirectUrl);
-      } else {
-        res.status(201).json({
-          success: true,
-          message: "Click tracked successfully",
-          data: result,
-        });
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Internal server error";
-      res.status(500).json({ success: false, message: msg });
+    if (redirect === true || req.query.redirect === "true") {
+      res.redirect(302, result.redirectUrl);
+    } else {
+      res.status(201).json(
+        ApiResponse.success(result, "Click tracked successfully")
+      );
     }
   }
 
   public async getClick(req: Request, res: Response): Promise<void> {
-    try {
-      const clickId = req.params.clickId as string;
-      const click = await this.trackingService.getClick(clickId);
-      if (!click) {
-        res.status(404).json({ success: false, message: "Click not found" });
-        return;
-      }
-      res.status(200).json({ success: true, data: click });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Internal server error";
-      res.status(500).json({ success: false, message: msg });
+    const clickId = req.params.clickId as string;
+    const click = await this.trackingService.getClick(clickId);
+    if (!click) {
+      throw new AppError("Click not found", 404);
     }
+    res.status(200).json(ApiResponse.success(click, "Click details fetched successfully"));
   }
 
   public async getHistory(req: Request, res: Response): Promise<void> {
-    try {
-      const userId = (req as any).user?.userId;
-      if (!userId) {
-        res.status(401).json({ success: false, message: "Unauthorized" });
-        return;
-      }
-      const history = await this.trackingService.getUserHistory(userId);
-      res.status(200).json({ success: true, data: history });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Internal server error";
-      res.status(500).json({ success: false, message: msg });
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      throw new AppError("Unauthorized", 401);
     }
+    const history = await this.trackingService.getUserHistory(userId);
+    res.status(200).json(ApiResponse.success(history, "User history fetched successfully"));
+  }
+
+  private formatValidationError(error: ZodError): string {
+    return error.issues.map((issue) => issue.message).join(", ");
   }
 }
+
 export const trackingController = new TrackingController();
+export default trackingController;
