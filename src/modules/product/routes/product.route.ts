@@ -37,6 +37,20 @@ router.get(
 |--------------------------------------------------------------------------
 */
 router.post(
+  "/categories/bulk",
+  authMiddleware,
+  authorize(["ADMIN"]),
+  asyncHandler(productController.bulkCreateCategories.bind(productController))
+);
+
+router.post(
+  "/categories/bulk-delete",
+  authMiddleware,
+  authorize(["ADMIN"]),
+  asyncHandler(productController.bulkDeleteCategories.bind(productController))
+);
+
+router.post(
   "/categories",
   authMiddleware,
   authorize(["ADMIN"]),

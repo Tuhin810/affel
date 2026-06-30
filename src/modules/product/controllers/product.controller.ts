@@ -200,6 +200,33 @@ export class ProductController {
     );
   }
 
+  async bulkCreateCategories(req: Request, res: Response): Promise<void> {
+    logger.info("Category bulk create request received");
+
+    const { names } = req.body;
+    if (!names || !Array.isArray(names)) {
+      throw new AppError("Invalid input: names must be an array of strings", 400);
+    }
+
+    const result = await this.productService.bulkCreateCategories(names);
+    logger.info("Category bulk create completed", { createdCount: result.createdCount });
+
+    res.status(201).json(
+      ApiResponse.success(result, "Bulk categories created successfully")
+    );
+  }
+
+  async bulkDeleteCategories(req: Request, res: Response): Promise<void> {
+    logger.info("Category bulk delete request received");
+
+    const result = await this.productService.bulkDeleteCategories();
+    logger.info("Category bulk delete completed", { deletedCount: result.deletedCount });
+
+    res.status(200).json(
+      ApiResponse.success(result, "Bulk categories deleted successfully")
+    );
+  }
+
   private formatValidationError(error: ZodError): string {
     return error.issues.map((issue) => issue.message).join(", ");
   }

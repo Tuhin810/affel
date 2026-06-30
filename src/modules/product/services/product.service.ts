@@ -262,12 +262,59 @@ export class ProductService {
       throw new AppError("Category not found", 404);
     }
 
-    const productCount = await this.productRepository.countCategoryProducts(id);
-    if (productCount > 0) {
-      throw new AppError("Cannot delete category because it is associated with products", 400);
+    return this.productRepository.deleteCategory(id);
+  }
+
+  async bulkCreateCategories(names: string[]) {
+    logger.info("Bulk creating categories service call", { count: names.length });
+
+    const results: any[] = [];
+    const skipped: string[] = [];
+
+    for (const name of names) {
+      const cleanName = name.trim();
+      if (!cleanName) continue;
+
+      const slug = this.slugify(cleanName);
+
+      // Check if duplicate name or slug exists
+      const existingName = await this.productRepository.findCategoryByName(cleanName);
+      const existingSlug = await this.productRepository.findCategoryBySlug(slug);
+
+      if (existingName || existingSlug) {
+        skipped.push(cleanName);
+        continue;
+      }
+
+      const created = await this.productRepository.createCategory({ name: cleanName, slug });
+      results.push(created);
     }
 
-    return this.productRepository.deleteCategory(id);
+    return {
+      createdCount: results.length,
+      skippedCount: skipped.length,
+      created: results,
+      skipped,
+    };
+  }
+
+  async bulkDeleteCategories() {
+    logger.info("Bulk deleting categories service call");
+
+    const categories = await this.productRepository.findAllCategories();
+    
+    let deletedCount = 0;
+
+    for (const category of categories) {
+      await this.productRepository.deleteCategory(category.id);
+      deletedCount++;
+    }
+
+    return {
+      deletedCount,
+      skippedCount: 0,
+      skippedCategories: [],
+    };
   }
 
   private slugify(text: string): string {

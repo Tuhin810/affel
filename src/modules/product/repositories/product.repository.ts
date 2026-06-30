@@ -759,6 +759,9 @@ export class ProductRepository {
   }
 
   async deleteCategory(id: string) {
+    await prisma.productCategory.deleteMany({
+      where: { categoryId: id },
+    });
     return prisma.category.delete({
       where: { id },
     });
