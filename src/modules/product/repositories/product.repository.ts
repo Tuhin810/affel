@@ -205,9 +205,20 @@ export class ProductRepository {
     return product;
   }
 
-  async findAllCategories() {
-    logger.info("Finding all categories in repository");
+  async findAllCategories(search?: string) {
+    logger.info("Finding all categories in repository", { search });
+
+    const where: Prisma.CategoryWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { slug: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {};
+
     return prisma.category.findMany({
+      where,
       include: {
         _count: {
           select: { products: true },
@@ -217,6 +228,65 @@ export class ProductRepository {
         name: "asc",
       },
     });
+  }
+
+  async findCategoriesPaginated(params: { page: number; limit: number; search?: string }) {
+    const { page, limit, search } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CategoryWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { slug: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {};
+
+    logger.info("Finding paginated categories in repository", { page, limit, search });
+
+    const [total, categories, globalTotal, linkedCount, totalProductLinks] = await Promise.all([
+      prisma.category.count({ where }),
+      prisma.category.findMany({
+        where,
+        include: {
+          _count: {
+            select: { products: true },
+          },
+        },
+        orderBy: {
+          name: "asc",
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.category.count(),
+      prisma.category.count({
+        where: {
+          products: {
+            some: {},
+          },
+        },
+      }),
+      prisma.productCategory.count(),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      categories,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+      stats: {
+        globalTotalCategories: globalTotal,
+        linkedCategoriesCount: linkedCount,
+        totalProductLinks,
+      },
+    };
   }
 
   async countCategoriesByIds(ids: string[]) {

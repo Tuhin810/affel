@@ -96,9 +96,25 @@ export class ProductService {
     logger.info("Product soft deleted successfully", { id });
   }
 
-  async getAllCategories() {
-    logger.info("Fetching all categories service call");
-    return this.productRepository.findAllCategories();
+  async getAllCategories(params?: { page?: number; limit?: number; search?: string }) {
+    logger.info("Fetching all categories service call", { params });
+
+    const page = params?.page;
+    const limit = params?.limit;
+    const search = params?.search;
+
+    if (page === undefined) {
+      return this.productRepository.findAllCategories(search);
+    }
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+
+    return this.productRepository.findCategoriesPaginated({
+      page: pageNum,
+      limit: limitNum,
+      search,
+    });
   }
 
   async listProducts(params: ListProductsInput) {

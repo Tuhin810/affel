@@ -66,12 +66,18 @@ export class ProductController {
   }
 
   async getCategories(req: Request, res: Response): Promise<void> {
-    logger.info("Category list request received");
-    const categories = await this.productService.getAllCategories();
-    logger.info("Category list request completed", { count: categories.length });
+    const page = req.query.page ? Number(req.query.page) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const search = req.query.search ? String(req.query.search) : undefined;
+
+    logger.info("Category list request received", { page, limit, search });
+    const result = await this.productService.getAllCategories({ page, limit, search });
+    
+    const count = Array.isArray(result) ? result.length : result.categories.length;
+    logger.info("Category list request completed", { count });
 
     res.status(200).json(
-      ApiResponse.success(categories, "Categories fetched successfully")
+      ApiResponse.success(result, "Categories fetched successfully")
     );
   }
 
