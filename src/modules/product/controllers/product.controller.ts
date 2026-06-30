@@ -8,6 +8,7 @@ import { updateProductSchema } from "../validators/update-product.validator";
 import { listProductsSchema } from "../validators/list-products.validator";
 import { createCategorySchema } from "../validators/create-category.validator";
 import { updateCategorySchema } from "../validators/update-category.validator";
+import { searchSchema } from "../validators/search.validator";
 import logger from "../../../config/logger";
 
 export class ProductController {
@@ -181,6 +182,21 @@ export class ProductController {
 
     res.status(200).json(
       ApiResponse.success(null, "Category deleted successfully")
+    );
+  }
+
+  async search(req: Request, res: Response): Promise<void> {
+    const parsed = searchSchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw new AppError(this.formatValidationError(parsed.error), 400);
+    }
+
+    logger.info("Search request received", { params: parsed.data });
+    const result = await this.productService.search(parsed.data);
+    logger.info("Search request completed", { type: parsed.data.type });
+
+    res.status(200).json(
+      ApiResponse.success(result, "Search results fetched successfully")
     );
   }
 

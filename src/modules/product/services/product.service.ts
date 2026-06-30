@@ -138,6 +138,16 @@ export class ProductService {
     return this.productRepository.listProducts(params);
   }
 
+  async search(params: { type: "product" | "category"; q: string; page: number; limit: number }) {
+    logger.info("Search service call", { params });
+
+    if (params.type === "category") {
+      return this.productRepository.searchCategories(params);
+    }
+
+    return this.productRepository.searchProducts(params);
+  }
+
   private async validateCategoryIds(categoryIds: string[]): Promise<void> {
     if (categoryIds.length === 0) {
       throw new AppError("At least one category is required", 400);

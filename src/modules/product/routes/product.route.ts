@@ -22,6 +22,11 @@ router.get(
 );
 
 router.get(
+  "/search",
+  asyncHandler(productController.search.bind(productController))
+);
+
+router.get(
   "/:id",
   asyncHandler(productController.getById.bind(productController))
 );

@@ -638,6 +638,95 @@ export class ProductRepository {
     };
   }
 
+  async searchProducts(params: { q: string; page: number; limit: number }) {
+    const { q, page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {
+      isActive: true,
+      isDeleted: false,
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ],
+    };
+
+    logger.info("Searching products in repository", { q, page, limit });
+
+    const [total, products] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          categories: {
+            include: { category: true },
+          },
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    const linksMap = await this.getAffiliateLinksForProducts(products);
+    const productsWithLinks = products.map((p) => ({
+      ...p,
+      affiliateLinks: linksMap[p.id] || [],
+    }));
+
+    return {
+      products: productsWithLinks,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  async searchCategories(params: { q: string; page: number; limit: number }) {
+    const { q, page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CategoryWhereInput = {
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { slug: { contains: q, mode: "insensitive" } },
+      ],
+    };
+
+    logger.info("Searching categories in repository", { q, page, limit });
+
+    const [total, categories] = await Promise.all([
+      prisma.category.count({ where }),
+      prisma.category.findMany({
+        where,
+        include: {
+          _count: {
+            select: { products: true },
+          },
+        },
+        orderBy: { name: "asc" },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      categories,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
   async findCategoryById(id: string) {
     return prisma.category.findUnique({
       where: { id },
