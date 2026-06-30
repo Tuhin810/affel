@@ -28,4 +28,15 @@ export const updateProductSchema = z.object({
   trackingTime: z.number().int().nonnegative("Tracking time must be a non-negative integer").optional(),
   validationTime: z.number().int().nonnegative("Validation time must be a non-negative integer").optional(),
   paymentRelease: z.number().int().nonnegative("Payment release time must be a non-negative integer").optional(),
+  affiliateLinks: z
+    .array(
+      z.object({
+        platformName: z.string().min(1, "Platform name is required"),
+        affiliateLink: z.string().url("Affiliate link must be a valid URL"),
+        mrp: z.number().nonnegative("MRP must be a non-negative number"),
+        sellPrice: z.number().nonnegative("Selling price must be a non-negative number"),
+        cashbackPercentage: z.number().nonnegative("Cashback percentage must be non-negative"),
+      })
+    )
+    .optional(),
 });

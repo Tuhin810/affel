@@ -6,10 +6,82 @@ import { ListProductsInput } from "../validators/list-products.validator";
 import logger from "../../../config/logger";
 
 export class ProductRepository {
+  // Helper to fetch affiliate links for multiple products
+  private async getAffiliateLinksForProducts(products: any[]) {
+    if (products.length === 0) return {};
+    const productIds = products.map((p) => p.id);
+    
+    const sources = await prisma.productSource.findMany({
+      where: { productId: { in: productIds } },
+      include: { merchant: true },
+    });
+
+    const sourceIds = sources.map((s) => s.id);
+
+    const affiliateLinks = await prisma.affiliateLink.findMany({
+      where: {
+        entityType: "PRODUCT_SOURCE",
+        entityId: { in: sourceIds },
+      },
+    });
+
+    const linksMap: Record<string, any[]> = {};
+    for (const source of sources) {
+      const affLink = affiliateLinks.find((al) => al.entityId === source.id);
+      if (!linksMap[source.productId]) {
+        linksMap[source.productId] = [];
+      }
+      linksMap[source.productId].push({
+        platformName: source.merchant.name,
+        affiliateLink: affLink ? affLink.affiliateUrl : source.originalProductUrl,
+        mrp: affLink && affLink.commissionPercent !== null ? affLink.commissionPercent : source.currentPrice,
+        sellPrice: source.currentPrice,
+        cashbackPercentage: affLink ? affLink.cashbackPercent : 0,
+      });
+    }
+
+    return linksMap;
+  }
+
+  // Helper to fetch affiliate links for a single product
+  private async getAffiliateLinksForProduct(productId: string) {
+    const sources = await prisma.productSource.findMany({
+      where: { productId },
+      include: { merchant: true },
+    });
+
+    const sourceIds = sources.map((s) => s.id);
+
+    const affiliateLinks = await prisma.affiliateLink.findMany({
+      where: {
+        entityType: "PRODUCT_SOURCE",
+        entityId: { in: sourceIds },
+      },
+    });
+
+    return sources.map((source) => {
+      const affLink = affiliateLinks.find((al) => al.entityId === source.id);
+      return {
+        platformName: source.merchant.name,
+        affiliateLink: affLink ? affLink.affiliateUrl : source.originalProductUrl,
+        mrp: affLink && affLink.commissionPercent !== null ? affLink.commissionPercent : source.currentPrice,
+        sellPrice: source.currentPrice,
+        cashbackPercentage: affLink ? affLink.cashbackPercent : 0,
+      };
+    });
+  }
+
   async create(data: CreateProductDto) {
     logger.info("Creating product in database", { name: data.name });
 
-    const { categoryIds, ...productData } = data;
+    const { categoryIds, affiliateLinks, ...productData } = data;
+
+    // Resolve merchant names to IDs in a single batch query BEFORE starting transaction
+    const merchantNames = affiliateLinks ? affiliateLinks.map((l) => l.platformName) : [];
+    const merchants = merchantNames.length > 0 
+      ? await prisma.merchant.findMany({ where: { name: { in: merchantNames } } })
+      : [];
+    const merchantMap = new Map(merchants.map((m) => [m.name, m.id]));
 
     const product = await prisma.$transaction(async (tx) => {
       const created = await tx.product.create({
@@ -30,11 +102,47 @@ export class ProductRepository {
           },
         },
       });
+
+      if (affiliateLinks && affiliateLinks.length > 0) {
+        for (const link of affiliateLinks) {
+          const merchantId = merchantMap.get(link.platformName);
+          if (merchantId) {
+            const productSource = await tx.productSource.create({
+              data: {
+                productId: created.id,
+                merchantId,
+                originalProductUrl: link.affiliateLink,
+                currentPrice: link.sellPrice,
+                stock: 10,
+                status: "ACTIVE",
+              },
+            });
+
+            await tx.affiliateLink.create({
+              data: {
+                entityType: "PRODUCT_SOURCE",
+                entityId: productSource.id,
+                merchantId,
+                originalUrl: link.affiliateLink,
+                affiliateUrl: link.affiliateLink,
+                cashbackPercent: link.cashbackPercentage,
+                commissionPercent: link.mrp,
+                isActive: true,
+              },
+            });
+          }
+        }
+      }
+
       return created;
+    }, {
+      maxWait: 5000,
+      timeout: 20000,
     });
 
     logger.info("Product created in database with categories", { id: product.id });
-    return product;
+    const populatedLinks = await this.getAffiliateLinksForProduct(product.id);
+    return { ...product, affiliateLinks: populatedLinks };
   }
 
   async findById(id: string) {
@@ -52,7 +160,9 @@ export class ProductRepository {
     });
 
     logger.info("Product lookup completed", { id, found: Boolean(product) });
-    return product;
+    if (!product) return null;
+    const affiliateLinks = await this.getAffiliateLinksForProduct(product.id);
+    return { ...product, affiliateLinks };
   }
 
   async findActiveById(id: string) {
@@ -74,7 +184,9 @@ export class ProductRepository {
     });
 
     logger.info("Active product lookup completed", { id, found: Boolean(product) });
-    return product;
+    if (!product) return null;
+    const affiliateLinks = await this.getAffiliateLinksForProduct(product.id);
+    return { ...product, affiliateLinks };
   }
 
   async findAllActive(filters?: { categoryIds?: string[]; category?: string }) {
@@ -121,7 +233,11 @@ export class ProductRepository {
     });
 
     logger.info("Active products fetched", { count: products.length });
-    return products;
+    const linksMap = await this.getAffiliateLinksForProducts(products);
+    return products.map((p) => ({
+      ...p,
+      affiliateLinks: linksMap[p.id] || [],
+    }));
   }
 
   async findAllAdmin(search?: string) {
@@ -151,8 +267,12 @@ export class ProductRepository {
       },
     });
 
-    logger.info("All products fetched for admin", { count: products.length });
-    return products;
+    logger.info("Admin products fetched", { count: products.length });
+    const linksMap = await this.getAffiliateLinksForProducts(products);
+    return products.map((p) => ({
+      ...p,
+      affiliateLinks: linksMap[p.id] || [],
+    }));
   }
 
   async findAdminProductsPaginated(params: { page: number; limit: number; search?: string }) {
@@ -194,9 +314,14 @@ export class ProductRepository {
     ]);
 
     const totalPages = Math.ceil(total / limit);
+    const linksMap = await this.getAffiliateLinksForProducts(products);
+    const productsWithLinks = products.map((p) => ({
+      ...p,
+      affiliateLinks: linksMap[p.id] || [],
+    }));
 
     return {
-      products,
+      products: productsWithLinks,
       pagination: {
         page,
         limit,
@@ -214,7 +339,14 @@ export class ProductRepository {
   async update(id: string, data: UpdateProductDto) {
     logger.info("Updating product in database", { id });
 
-    const { categoryIds, ...productData } = data;
+    const { categoryIds, affiliateLinks, ...productData } = data;
+
+    // Resolve merchant names to IDs in a single batch query BEFORE starting transaction
+    const merchantNames = affiliateLinks ? affiliateLinks.map((l) => l.platformName) : [];
+    const merchants = merchantNames.length > 0 
+      ? await prisma.merchant.findMany({ where: { name: { in: merchantNames } } })
+      : [];
+    const merchantMap = new Map(merchants.map((m) => [m.name, m.id]));
 
     const product = await prisma.$transaction(async (tx) => {
       if (categoryIds !== undefined) {
@@ -247,11 +379,62 @@ export class ProductRepository {
         },
       });
 
+      if (affiliateLinks !== undefined) {
+        const existingSources = await tx.productSource.findMany({
+          where: { productId: id },
+        });
+        const sourceIds = existingSources.map((s) => s.id);
+        
+        await tx.affiliateLink.deleteMany({
+          where: {
+            entityType: "PRODUCT_SOURCE",
+            entityId: { in: sourceIds },
+          },
+        });
+
+        await tx.productSource.deleteMany({
+          where: { productId: id },
+        });
+
+        for (const link of affiliateLinks) {
+          const merchantId = merchantMap.get(link.platformName);
+          if (merchantId) {
+            const productSource = await tx.productSource.create({
+              data: {
+                productId: id,
+                merchantId,
+                originalProductUrl: link.affiliateLink,
+                currentPrice: link.sellPrice,
+                stock: 10,
+                status: "ACTIVE",
+              },
+            });
+
+            await tx.affiliateLink.create({
+              data: {
+                entityType: "PRODUCT_SOURCE",
+                entityId: productSource.id,
+                merchantId,
+                originalUrl: link.affiliateLink,
+                affiliateUrl: link.affiliateLink,
+                cashbackPercent: link.cashbackPercentage,
+                commissionPercent: link.mrp,
+                isActive: true,
+              },
+            });
+          }
+        }
+      }
+
       return updated;
+    }, {
+      maxWait: 5000,
+      timeout: 20000,
     });
 
     logger.info("Product updated successfully", { id: product.id });
-    return product;
+    const populatedLinks = await this.getAffiliateLinksForProduct(product.id);
+    return { ...product, affiliateLinks: populatedLinks };
   }
 
   async softDelete(id: string) {
@@ -438,9 +621,14 @@ export class ProductRepository {
     const totalPages = Math.ceil(total / limit);
 
     logger.info("Product listing complete", { total, page, limit, totalPages, returned: products.length });
+    const linksMap = await this.getAffiliateLinksForProducts(products);
+    const productsWithLinks = products.map((p) => ({
+      ...p,
+      affiliateLinks: linksMap[p.id] || [],
+    }));
 
     return {
-      products,
+      products: productsWithLinks,
       pagination: {
         page,
         limit,

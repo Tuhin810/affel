@@ -12,4 +12,11 @@ export interface CreateProductDto {
   trackingTime: number;
   validationTime: number;
   paymentRelease: number;
+  affiliateLinks?: Array<{
+    platformName: string;
+    affiliateLink: string;
+    mrp: number;
+    sellPrice: number;
+    cashbackPercentage: number;
+  }>;
 }
