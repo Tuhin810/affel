@@ -82,13 +82,19 @@ export class ProductController {
   }
 
   async getAllAdmin(req: Request, res: Response): Promise<void> {
-    logger.info("Product list admin request received");
+    const page = req.query.page ? Number(req.query.page) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const search = req.query.search ? String(req.query.search) : undefined;
 
-    const products = await this.productService.getAllAdmin();
-    logger.info("Product list admin request completed", { count: products.length });
+    logger.info("Product list admin request received", { page, limit, search });
+
+    const result = await this.productService.getAllAdmin({ page, limit, search });
+    
+    const count = Array.isArray(result) ? result.length : result.products.length;
+    logger.info("Product list admin request completed", { count });
 
     res.status(200).json(
-      ApiResponse.success(products, "All products fetched successfully for admin")
+      ApiResponse.success(result, "All products fetched successfully for admin")
     );
   }
 

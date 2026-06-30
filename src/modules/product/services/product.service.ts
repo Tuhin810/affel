@@ -27,9 +27,25 @@ export class ProductService {
     return this.productRepository.findAllActive(filters);
   }
 
-  async getAllAdmin() {
-    logger.info("Fetching all products for admin service call");
-    return this.productRepository.findAllAdmin();
+  async getAllAdmin(params?: { page?: number; limit?: number; search?: string }) {
+    logger.info("Fetching all products for admin service call", { params });
+
+    const page = params?.page;
+    const limit = params?.limit;
+    const search = params?.search;
+
+    if (page === undefined) {
+      return this.productRepository.findAllAdmin(search);
+    }
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+
+    return this.productRepository.findAdminProductsPaginated({
+      page: pageNum,
+      limit: limitNum,
+      search,
+    });
   }
 
   async getById(id: string) {

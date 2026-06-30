@@ -124,13 +124,21 @@ export class ProductRepository {
     return products;
   }
 
-  async findAllAdmin() {
-    logger.info("Finding all products for admin");
+  async findAllAdmin(search?: string) {
+    logger.info("Finding all products for admin", { search });
+
+    const where: Prisma.ProductWhereInput = {
+      isDeleted: false,
+      ...(search && {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
+      }),
+    };
 
     const products = await prisma.product.findMany({
-      where: {
-        isDeleted: false,
-      },
+      where,
       include: {
         categories: {
           include: {
@@ -145,6 +153,62 @@ export class ProductRepository {
 
     logger.info("All products fetched for admin", { count: products.length });
     return products;
+  }
+
+  async findAdminProductsPaginated(params: { page: number; limit: number; search?: string }) {
+    const { page, limit, search } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {
+      isDeleted: false,
+      ...(search && {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
+      }),
+    };
+
+    logger.info("Finding paginated products for admin in repository", { page, limit, search });
+
+    const [total, products, globalTotal, activeTotal, featuredTotal] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        include: {
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.product.count({ where: { isDeleted: false } }),
+      prisma.product.count({ where: { isDeleted: false, isActive: true } }),
+      prisma.product.count({ where: { isDeleted: false, isFeatured: true } }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+      stats: {
+        globalTotalProducts: globalTotal,
+        activeProductsCount: activeTotal,
+        featuredProductsCount: featuredTotal,
+      },
+    };
   }
 
   async update(id: string, data: UpdateProductDto) {
