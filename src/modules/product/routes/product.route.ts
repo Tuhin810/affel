@@ -32,6 +32,27 @@ router.get(
 |--------------------------------------------------------------------------
 */
 router.post(
+  "/categories",
+  authMiddleware,
+  authorize(["ADMIN"]),
+  asyncHandler(productController.createCategory.bind(productController))
+);
+
+router.patch(
+  "/categories/:id",
+  authMiddleware,
+  authorize(["ADMIN"]),
+  asyncHandler(productController.updateCategory.bind(productController))
+);
+
+router.delete(
+  "/categories/:id",
+  authMiddleware,
+  authorize(["ADMIN"]),
+  asyncHandler(productController.deleteCategory.bind(productController))
+);
+
+router.post(
   "/",
   authMiddleware,
   authorize(["ADMIN"]),

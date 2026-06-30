@@ -208,6 +208,11 @@ export class ProductRepository {
   async findAllCategories() {
     logger.info("Finding all categories in repository");
     return prisma.category.findMany({
+      include: {
+        _count: {
+          select: { products: true },
+        },
+      },
       orderBy: {
         name: "asc",
       },
@@ -310,4 +315,48 @@ export class ProductRepository {
       },
     };
   }
+
+  async findCategoryById(id: string) {
+    return prisma.category.findUnique({
+      where: { id },
+    });
+  }
+
+  async findCategoryByName(name: string) {
+    return prisma.category.findUnique({
+      where: { name },
+    });
+  }
+
+  async findCategoryBySlug(slug: string) {
+    return prisma.category.findUnique({
+      where: { slug },
+    });
+  }
+
+  async createCategory(data: { name: string; slug: string }) {
+    return prisma.category.create({
+      data,
+    });
+  }
+
+  async updateCategory(id: string, data: { name?: string; slug?: string }) {
+    return prisma.category.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteCategory(id: string) {
+    return prisma.category.delete({
+      where: { id },
+    });
+  }
+
+  async countCategoryProducts(id: string) {
+    return prisma.productCategory.count({
+      where: { categoryId: id },
+    });
+  }
 }
+

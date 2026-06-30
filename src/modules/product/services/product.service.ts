@@ -147,5 +147,96 @@ export class ProductService {
       }
     }
   }
+
+  async createCategory(dto: { name: string; slug?: string }) {
+    logger.info("Creating category service call", { name: dto.name });
+
+    const slug = dto.slug ? dto.slug.trim().toLowerCase() : this.slugify(dto.name);
+
+    // Check duplicate name
+    const existingName = await this.productRepository.findCategoryByName(dto.name);
+    if (existingName) {
+      throw new AppError("Category name already exists", 400);
+    }
+
+    // Check duplicate slug
+    const existingSlug = await this.productRepository.findCategoryBySlug(slug);
+    if (existingSlug) {
+      throw new AppError("Category slug already exists", 400);
+    }
+
+    return this.productRepository.createCategory({ name: dto.name, slug });
+  }
+
+  async updateCategory(id: string, dto: { name?: string; slug?: string }) {
+    logger.info("Updating category service call", { id, name: dto.name, slug: dto.slug });
+
+    const existing = await this.productRepository.findCategoryById(id);
+    if (!existing) {
+      throw new AppError("Category not found", 404);
+    }
+
+    const updatedData: { name?: string; slug?: string } = {};
+
+    if (dto.name !== undefined) {
+      if (dto.name !== existing.name) {
+        const existingName = await this.productRepository.findCategoryByName(dto.name);
+        if (existingName) {
+          throw new AppError("Category name already exists", 400);
+        }
+      }
+      updatedData.name = dto.name;
+    }
+
+    if (dto.slug !== undefined) {
+      const slug = dto.slug.trim().toLowerCase();
+      if (slug !== existing.slug) {
+        const existingSlug = await this.productRepository.findCategoryBySlug(slug);
+        if (existingSlug) {
+          throw new AppError("Category slug already exists", 400);
+        }
+      }
+      updatedData.slug = slug;
+    } else if (dto.name !== undefined && dto.name !== existing.name) {
+      // Re-generate slug if name changed but slug wasn't explicitly provided
+      const slug = this.slugify(dto.name);
+      if (slug !== existing.slug) {
+        const existingSlug = await this.productRepository.findCategoryBySlug(slug);
+        if (existingSlug) {
+          throw new AppError("Category slug already exists", 400);
+        }
+      }
+      updatedData.slug = slug;
+    }
+
+    return this.productRepository.updateCategory(id, updatedData);
+  }
+
+  async deleteCategory(id: string) {
+    logger.info("Deleting category service call", { id });
+
+    const existing = await this.productRepository.findCategoryById(id);
+    if (!existing) {
+      throw new AppError("Category not found", 404);
+    }
+
+    const productCount = await this.productRepository.countCategoryProducts(id);
+    if (productCount > 0) {
+      throw new AppError("Cannot delete category because it is associated with products", 400);
+    }
+
+    return this.productRepository.deleteCategory(id);
+  }
+
+  private slugify(text: string): string {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/&/g, "-and-")
+      .replace(/[^\w\-]+/g, "")
+      .replace(/\-\-+/g, "-");
+  }
 }
 export default ProductService;

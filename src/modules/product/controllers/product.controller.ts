@@ -6,6 +6,8 @@ import { ProductService } from "../services/product.service";
 import { createProductSchema } from "../validators/create-product.validator";
 import { updateProductSchema } from "../validators/update-product.validator";
 import { listProductsSchema } from "../validators/list-products.validator";
+import { createCategorySchema } from "../validators/create-category.validator";
+import { updateCategorySchema } from "../validators/update-category.validator";
 import logger from "../../../config/logger";
 
 export class ProductController {
@@ -122,6 +124,51 @@ export class ProductController {
 
     res.status(200).json(
       ApiResponse.success(null, "Product deleted successfully")
+    );
+  }
+
+  async createCategory(req: Request, res: Response): Promise<void> {
+    logger.info("Category create request received", { name: req.body?.name });
+
+    const parsed = createCategorySchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(this.formatValidationError(parsed.error), 400);
+    }
+
+    const category = await this.productService.createCategory(parsed.data);
+    logger.info("Category create request completed", { id: category.id });
+
+    res.status(201).json(
+      ApiResponse.success(category, "Category created successfully")
+    );
+  }
+
+  async updateCategory(req: Request, res: Response): Promise<void> {
+    const id = String(req.params.id);
+    logger.info("Category update request received", { id, name: req.body?.name });
+
+    const parsed = updateCategorySchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(this.formatValidationError(parsed.error), 400);
+    }
+
+    const category = await this.productService.updateCategory(id, parsed.data);
+    logger.info("Category update request completed", { id: category.id });
+
+    res.status(200).json(
+      ApiResponse.success(category, "Category updated successfully")
+    );
+  }
+
+  async deleteCategory(req: Request, res: Response): Promise<void> {
+    const id = String(req.params.id);
+    logger.info("Category delete request received", { id });
+
+    await this.productService.deleteCategory(id);
+    logger.info("Category delete request completed", { id });
+
+    res.status(200).json(
+      ApiResponse.success(null, "Category deleted successfully")
     );
   }
 
